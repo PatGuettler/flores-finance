@@ -166,7 +166,7 @@
     "msgAddedCategory": "Added category \"{name}\" and refreshed rules on existing transactions.",
     "errCategoryNameRequired": "Enter a category name.",
     "budgetAddLineTitle": "Add budget line",
-    "budgetAddLineHelp": "Adds an amount for a category. Multiple lines for the same category add together on the dashboard. Importing a budget spreadsheet keeps lines you added here and replaces only rows from that file.",
+    "budgetAddLineHelp": "Categories that already have any budget line (from an import or added here) are omitted from the list so you cannot add a duplicate. Importing a budget file replaces spreadsheet rows from earlier imports but keeps manual lines you added on this tab.",
     "budgetAddAmount": "Amount",
     "budgetAddAmountPlaceholder": "0.00",
     "budgetAddLabel": "Label (optional)",
@@ -181,6 +181,10 @@
     "categoryQuickAddAria": "Add new category",
     "categoryQuickAddHelpTransaction": "Creates the category, assigns it to this transaction, and re-runs auto rules on all rows.",
     "categoryQuickAddHelpBudget": "Creates the category and selects it for the budget line form below.",
-    "categoryQuickAddCancel": "Cancel"
+    "categoryQuickAddCancel": "Cancel",
+    "errBudgetLineExists": "A budget line for \"{name}\" already exists.",
+    "budgetAddAllCategoriesHaveLines": "Every category already has a budget line. Clear the budget, import a different file, or add a new category to add more.",
+    "budgetAddNoEligibleCategory": "No categories left — add a category or clear budget lines",
+    "errBudgetNoCategory": "Pick a category for the budget line."
   }
 }

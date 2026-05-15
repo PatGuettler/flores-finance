@@ -156,18 +156,28 @@ export function App({ bootstrap, persistence }: AppProps) {
     return () => window.clearTimeout(t);
   }, [message]);
 
-  useEffect(() => {
-    if (state.categories.length === 0) return;
-    setBudgetLineCategoryId((id) =>
-      id && state.categories.some((c) => c.id === id) ? id : state.categories[0]!.id,
-    );
-  }, [state.categories]);
-
   const categoryById = useMemo(() => {
     const m = new Map<string, Category>();
     for (const c of state.categories) m.set(c.id, c);
     return m;
   }, [state.categories]);
+
+  const categoriesEligibleForBudgetLine = useMemo(() => {
+    const used = new Set(state.budgets.map((b) => b.categoryId));
+    return state.categories.filter((c) => !used.has(c.id));
+  }, [state.categories, state.budgets]);
+
+  useEffect(() => {
+    if (categoriesEligibleForBudgetLine.length === 0) {
+      setBudgetLineCategoryId("");
+      return;
+    }
+    setBudgetLineCategoryId((id) =>
+      id && categoriesEligibleForBudgetLine.some((c) => c.id === id)
+        ? id
+        : categoriesEligibleForBudgetLine[0]!.id,
+    );
+  }, [categoriesEligibleForBudgetLine]);
 
   const spendByCat = useMemo(() => sumSpendByCategory(state.purchases), [state.purchases]);
   const budgetByCat = useMemo(() => sumBudgetByCategory(state.budgets), [state.budgets]);
@@ -338,6 +348,19 @@ export function App({ bootstrap, persistence }: AppProps) {
     const amt = Number.parseFloat(raw);
     if (!Number.isFinite(amt) || amt <= 0) {
       setMessage({ type: "error", text: uiText(ui, "errBudgetAmountInvalid") });
+      return;
+    }
+    if (!budgetLineCategoryId) {
+      setMessage({ type: "error", text: uiText(ui, "errBudgetNoCategory") });
+      return;
+    }
+    if (state.budgets.some((b) => b.categoryId === budgetLineCategoryId)) {
+      setMessage({
+        type: "error",
+        text: formatUi(ui, "errBudgetLineExists", {
+          name: categoryById.get(budgetLineCategoryId)?.name ?? budgetLineCategoryId,
+        }),
+      });
       return;
     }
     const cat = categoryById.get(budgetLineCategoryId);
@@ -664,6 +687,11 @@ export function App({ bootstrap, persistence }: AppProps) {
 
           <h3 style={{ marginTop: "1.25rem" }}>{uiText(ui, "budgetAddLineTitle")}</h3>
           <p className="subtle">{uiText(ui, "budgetAddLineHelp")}</p>
+          {categoriesEligibleForBudgetLine.length === 0 && state.categories.length > 0 && (
+            <p className="subtle" style={{ marginBottom: "0.5rem" }}>
+              {uiText(ui, "budgetAddAllCategoriesHaveLines")}
+            </p>
+          )}
           {categoryQuickAdd.kind === "budget" && quickCategoryAddBlock}
           <div className="row drop">
             <label className="profile-field" style={{ minWidth: 200, flex: "1 1 160px" }}>
@@ -671,7 +699,7 @@ export function App({ bootstrap, persistence }: AppProps) {
               <select
                 value={
                   categoryQuickAdd.kind === "budget"
-                    ? categoryQuickAdd.prevCategoryId
+                    ? categoryQuickAdd.prevCategoryId || budgetLineCategoryId
                     : budgetLineCategoryId
                 }
                 onChange={(e) => {
@@ -688,7 +716,12 @@ export function App({ bootstrap, persistence }: AppProps) {
                   setBudgetLineCategoryId(v);
                 }}
               >
-                {state.categories.map((c) => (
+                {categoriesEligibleForBudgetLine.length === 0 ? (
+                  <option value="" disabled>
+                    {uiText(ui, "budgetAddNoEligibleCategory")}
+                  </option>
+                ) : null}
+                {categoriesEligibleForBudgetLine.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -717,7 +750,14 @@ export function App({ bootstrap, persistence }: AppProps) {
                 placeholder={uiText(ui, "budgetAddLabelPlaceholder")}
               />
             </label>
-            <button type="button" className="btn btn-primary" onClick={addManualBudgetLine}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={
+                categoriesEligibleForBudgetLine.length === 0 || !budgetLineCategoryId
+              }
+              onClick={addManualBudgetLine}
+            >
               {uiText(ui, "budgetAddButton")}
             </button>
           </div>
