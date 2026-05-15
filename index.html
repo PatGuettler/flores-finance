@@ -33,6 +33,7 @@
         }
       })();
     </script>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Vite resolves this in dev; production uses hashed bundles in dist/index.html after `npm run build`. -->
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

@@ -44,9 +44,9 @@ npm run preview # serves dist/ locally
 ## GitHub Pages (test hosting)
 
 1. Push this repository to GitHub (this folder as the repo root).
-2. In the repository **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions** (not “Deploy from a branch”).  
-   **Why:** “Deploy from a branch” with **/ (root)** only serves files from the **repository root** on that branch. The app’s `index.html` must live there (same level as `package.json`) so GitHub can serve it as `/`; the built app in **`dist/`** is what **GitHub Actions** publishes.
-3. The workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) builds on every push to `main` or `master` and publishes the `dist/` folder to GitHub Pages.
+2. **Do not use the “Jekyll” GitHub Actions starter** (or any workflow that does not run `npm run build`). That publishes Markdown/Jekyll output, not this Vite app — you will see 404s for `/src/main.tsx` or `config/runtime.json` and a broken shell. If GitHub added `jekyll-gh-pages.yml` (or similar), delete it in **Actions** or remove the file from `.github/workflows/`.
+3. In the repository **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions** (not “Deploy from a branch”). Under **Workflow**, choose **Deploy GitHub Pages** (this repo’s [`pages.yml`](.github/workflows/pages.yml)), not a Jekyll workflow.  
+   **Why:** “Deploy from a branch” with **/ (root)** only serves raw repo files. The runnable app is the **`dist/`** output of `npm run build`, which **Deploy GitHub Pages** builds and uploads on every push to `main` or `master`.
 4. After the first successful run, open the **Pages** environment URL shown in the workflow summary. If the site was previously set to branch publishing, switch the source to **GitHub Actions** and wait for a new **“pages build and deployment”** run to finish.
 
 The Pages workflow sets `VITE_BASE` to `/{repository-name}/` so scripts and styles load on project sites like `https://USERNAME.github.io/REPO-NAME/` even without a trailing slash. Local builds omit it and use `base: "./"`.
@@ -135,6 +135,7 @@ The downloadable / importable document matches `AppState` in `src/types.ts`:
 - **Budget not showing**: Ensure the spreadsheet has recognizable headers (for example a column containing “Category” and another containing “Budget” or “Amount”).
 - **Blank screen on GitHub Pages**: Confirm **Settings → Pages** uses **GitHub Actions** as the source and that the `Deploy GitHub Pages` workflow completed successfully.
 - **The site shows your README.md text (not the app)**: Pages is still publishing from the **repository branch** (for example **Deploy from a branch → `/ (root)`**), so GitHub is rendering the repo instead of the built `dist/` bundle. Open **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions**, save, then push a commit (or re-run the **Deploy GitHub Pages** workflow) and wait for it to finish. The live app only ships from that workflow’s artifact.
+- **`GET …/src/main.tsx` 404 or `config/runtime.json` 404 on GitHub Pages**: You are almost certainly running a **Jekyll** (or other) workflow that never runs `npm run build`, so GitHub is serving the **source** `index.html` from the repo, not **`dist/index.html`**. Remove the Jekyll workflow file from `.github/workflows/`, set **Pages → Build and deployment** to use **GitHub Actions** and select **Deploy GitHub Pages** (`pages.yml`), then run **Actions → Deploy GitHub Pages → Run workflow**.
 
 ## License
 
