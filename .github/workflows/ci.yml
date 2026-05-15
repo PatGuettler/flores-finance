@@ -27,6 +27,41 @@ jobs:
           npm ci
           npm run build
 
+      - name: Pack static site for local hosting
+        run: |
+          set -e
+          mkdir -p _local_bundle/dist
+          cp -r dist/. _local_bundle/dist/
+          cat > _local_bundle/README-LOCAL.txt << 'BUNDLEEOF'
+          Spend & Budget Tracker — run this build on your machine
+          ========================================================
+
+          1. Unzip this archive (the "dist" artifact from CI is the same app without this README).
+
+          2. Install Node.js 20+ if you do not already have it.
+
+          3. In a terminal, cd to the folder that contains the "dist" directory, then run:
+
+               npx --yes serve@14 -l 5173 dist
+
+             Open http://localhost:5173 in the browser. Use Chrome or Edge if you want the
+             optional "Local JSON database" feature on the Data tab (writes a .json file on disk).
+
+          4. For development from source instead, clone the repository and run: npm ci && npm run dev
+
+          Data
+          ----
+          By default the app saves to the browser (localStorage). Optionally link a .json file on
+          the Data tab; the app mirrors every change to that file for a future database or backup.
+          BUNDLEEOF
+          (cd _local_bundle && zip -r ../flores-finance-local-static.zip .)
+
+      - name: Upload local static bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: flores-finance-local-static
+          path: flores-finance-local-static.zip
+
       - name: Upload production bundle
         uses: actions/upload-artifact@v4
         with:

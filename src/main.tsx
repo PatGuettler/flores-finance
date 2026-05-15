@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { App } from "./App";
 import { loadAppBootstrap } from "./runtime/manifest";
 import { createPersistence } from "./storage";
+import type { AppState } from "./types";
 import "./index.css";
 
 const rootEl = document.getElementById("root");
@@ -12,16 +13,28 @@ rootEl.innerHTML =
   '<div class="panel"><p class="subtle">Loading configuration…</p></div>';
 
 loadAppBootstrap()
-  .then((bootstrap) => {
+  .then(async (bootstrap) => {
     const persistence = createPersistence(
       bootstrap.manifest,
       bootstrap.initialCategories,
       bootstrap.initialMerchantRules,
     );
+    await persistence.hydrateLinkedWorkspaceFile();
+
+    let initialAppState: AppState | undefined;
+    if (persistence.getLinkedWorkspaceFileName()) {
+      const fromFile = await persistence.loadStateFromLinkedWorkspace();
+      if (fromFile) initialAppState = fromFile;
+    }
+
     rootEl.innerHTML = "";
     ReactDOM.createRoot(rootEl).render(
       <React.StrictMode>
-        <App bootstrap={bootstrap} persistence={persistence} />
+        <App
+          bootstrap={bootstrap}
+          persistence={persistence}
+          initialAppState={initialAppState}
+        />
       </React.StrictMode>,
     );
   })

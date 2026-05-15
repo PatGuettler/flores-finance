@@ -48,6 +48,11 @@ function formatUi(
   return uiText(ui, key).replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ""));
 }
 
+function isUserAbortError(e: unknown): boolean {
+  if (e instanceof DOMException && e.name === "AbortError") return true;
+  return e instanceof Error && e.name === "AbortError";
+}
+
 async function downloadPublicSample(path: string, filename: string): Promise<void> {
   const baseHref = new URL(import.meta.env.BASE_URL, window.location.href).href;
   const url = new URL(path.replace(/^\//, ""), baseHref).href;
@@ -90,9 +95,11 @@ function IconTrash() {
 function useAppState(
   bootstrap: AppBootstrap,
   persistence: Persistence,
+  initialAppState?: AppState,
 ): [AppState, (next: AppState | ((prev: AppState) => AppState)) => void] {
   const { manifest, initialCategories, initialMerchantRules } = bootstrap;
   const [state, setState] = useState<AppState>(() => {
+    if (initialAppState !== undefined) return initialAppState;
     return (
       persistence.loadStateFromLocalStorage() ??
       createEmptyState(manifest.stateVersion, initialCategories, initialMerchantRules)
@@ -132,14 +139,19 @@ function sumSpendByCategory(purchases: Purchase[]): Map<string, number> {
 export type AppProps = {
   bootstrap: AppBootstrap;
   persistence: Persistence;
+  /** When set, used as the first snapshot (e.g. state read from a linked JSON workspace file). */
+  initialAppState?: AppState;
 };
 
-export function App({ bootstrap, persistence }: AppProps) {
+export function App({ bootstrap, persistence, initialAppState }: AppProps) {
   const { manifest } = bootstrap;
   const ui = manifest.ui;
   const patterns = manifest.importPatterns;
 
-  const [state, persist] = useAppState(bootstrap, persistence);
+  const [state, persist] = useAppState(bootstrap, persistence, initialAppState);
+  const [linkedWorkspaceFileName, setLinkedWorkspaceFileName] = useState<string | null>(() =>
+    persistence.getLinkedWorkspaceFileName(),
+  );
   const [tab, setTab] = useState<Tab>("dashboard");
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(
     null,
@@ -1117,7 +1129,96 @@ export function App({ bootstrap, persistence }: AppProps) {
         <section className="panel">
           <h2>{uiText(ui, "dataTitle")}</h2>
           <p className="subtle">{uiText(ui, "dataHelp")}</p>
-          <div className="row">
+          {persistence.isWorkspaceFilePersistenceAvailable() ? (
+            <>
+              <h3 style={{ marginTop: "1.25rem" }}>{uiText(ui, "dataWorkspaceFileTitle")}</h3>
+              <p className="subtle">{uiText(ui, "dataWorkspaceFileHelp")}</p>
+              {linkedWorkspaceFileName ? (
+                <p className="subtle">
+                  {formatUi(ui, "dataWorkspaceLinkedStatus", { name: linkedWorkspaceFileName })}
+                </p>
+              ) : (
+                <p className="subtle">{uiText(ui, "dataWorkspaceNotLinked")}</p>
+              )}
+              <div className="row" style={{ marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() =>
+                    void (async () => {
+                      try {
+                        const next = await persistence.linkExistingWorkspaceFile();
+                        persist(next);
+                        setLinkedWorkspaceFileName(persistence.getLinkedWorkspaceFileName());
+                        setMessage({ type: "ok", text: uiText(ui, "msgLinkedWorkspaceExisting") });
+                      } catch (e) {
+                        if (isUserAbortError(e)) return;
+                        setMessage({
+                          type: "error",
+                          text: formatUi(ui, "errWorkspaceFilePick", {
+                            detail: e instanceof Error ? e.message : String(e),
+                          }),
+                        });
+                      }
+                    })()
+                  }
+                >
+                  {uiText(ui, "dataWorkspaceLinkExisting")}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() =>
+                    void (async () => {
+                      try {
+                        await persistence.linkNewWorkspaceFile(state);
+                        const refreshed = persistence.loadStateFromLocalStorage();
+                        if (refreshed) persist(refreshed);
+                        setLinkedWorkspaceFileName(persistence.getLinkedWorkspaceFileName());
+                        setMessage({ type: "ok", text: uiText(ui, "msgLinkedWorkspaceNew") });
+                      } catch (e) {
+                        if (isUserAbortError(e)) return;
+                        setMessage({
+                          type: "error",
+                          text: formatUi(ui, "errWorkspaceFilePick", {
+                            detail: e instanceof Error ? e.message : String(e),
+                          }),
+                        });
+                      }
+                    })()
+                  }
+                >
+                  {uiText(ui, "dataWorkspaceLinkNew")}
+                </button>
+                {linkedWorkspaceFileName ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() =>
+                      void (async () => {
+                        try {
+                          await persistence.unlinkWorkspaceFile();
+                          setLinkedWorkspaceFileName(null);
+                          setMessage({ type: "ok", text: uiText(ui, "msgUnlinkedWorkspace") });
+                        } catch (e) {
+                          if (isUserAbortError(e)) return;
+                          setMessage({
+                            type: "error",
+                            text: formatUi(ui, "errWorkspaceFilePick", {
+                              detail: e instanceof Error ? e.message : String(e),
+                            }),
+                          });
+                        }
+                      })()
+                    }
+                  >
+                    {uiText(ui, "dataWorkspaceUnlink")}
+                  </button>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+          <div className="row" style={{ marginTop: "1rem" }}>
             <button
               type="button"
               className="btn btn-primary"

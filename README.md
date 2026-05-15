@@ -53,7 +53,7 @@ npm run preview # serves dist/ locally
 
 ## CI and AWS-style static deploy
 
-- **Continuous integration**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `npm ci` and `npm run build` on pushes and pull requests, and uploads `dist/` as a workflow artifact you can download or feed into a deploy step.
+- **Continuous integration**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `npm ci` and `npm run build` on pushes and pull requests. It uploads **`dist`** as the production bundle and **`flores-finance-local-static`** as a zip (built `dist/` plus `README-LOCAL.txt`) so you can download a runnable build from the Actions run without cloning.
 - **Amazon S3 + CloudFront (static website)**:
   1. Create an S3 bucket configured for static website hosting **or** a private bucket fronted by CloudFront with `index.html` as the default root object.
   2. Sync the build output:
