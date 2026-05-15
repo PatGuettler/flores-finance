@@ -63,6 +63,28 @@ async function downloadPublicSample(path: string, filename: string): Promise<voi
   URL.revokeObjectURL(objectUrl);
 }
 
+function IconPencil() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.83H5v-.92l8.06-8.06.92.92L5.92 20.08zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+      />
+    </svg>
+  );
+}
+
+function IconTrash() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+      />
+    </svg>
+  );
+}
+
 function useAppState(
   bootstrap: AppBootstrap,
   persistence: Persistence,
@@ -127,11 +149,18 @@ export function App({ bootstrap, persistence }: AppProps) {
   const [categoryQuickAdd, setCategoryQuickAdd] = useState<CategoryQuickAdd>({ kind: "none" });
   const [quickAddName, setQuickAddName] = useState("");
   const [quickAddColor, setQuickAddColor] = useState("#6366f1");
+  const [editingBudgetLineId, setEditingBudgetLineId] = useState<string | null>(null);
+  const [editBudgetDraft, setEditBudgetDraft] = useState<{
+    categoryId: string;
+    label: string;
+    amount: string;
+  }>({ categoryId: "", label: "", amount: "" });
 
   useEffect(() => {
     setCategoryQuickAdd({ kind: "none" });
     setQuickAddName("");
     setQuickAddColor("#6366f1");
+    setEditingBudgetLineId(null);
   }, [tab]);
 
   useEffect(() => {
@@ -166,6 +195,13 @@ export function App({ bootstrap, persistence }: AppProps) {
     const used = new Set(state.budgets.map((b) => b.categoryId));
     return state.categories.filter((c) => !used.has(c.id));
   }, [state.categories, state.budgets]);
+
+  const categoriesForBudgetLineEdit = useMemo(() => {
+    if (!editingBudgetLineId) return state.categories;
+    return state.categories.filter(
+      (c) => !state.budgets.some((b) => b.categoryId === c.id && b.id !== editingBudgetLineId),
+    );
+  }, [state.categories, state.budgets, editingBudgetLineId]);
 
   useEffect(() => {
     if (categoriesEligibleForBudgetLine.length === 0) {
@@ -377,6 +413,75 @@ export function App({ bootstrap, persistence }: AppProps) {
     setBudgetLineAmount("");
     setBudgetLineLabel("");
     setMessage({ type: "ok", text: uiText(ui, "msgAddedBudgetLine") });
+  };
+
+  const cancelEditBudgetLine = () => {
+    setEditingBudgetLineId(null);
+    setEditBudgetDraft({ categoryId: "", label: "", amount: "" });
+  };
+
+  const startEditBudgetLine = (b: BudgetLine) => {
+    setCategoryQuickAdd({ kind: "none" });
+    setQuickAddName("");
+    setQuickAddColor("#6366f1");
+    setEditingBudgetLineId(b.id);
+    setEditBudgetDraft({
+      categoryId: b.categoryId,
+      label: b.label,
+      amount: String(b.amount),
+    });
+  };
+
+  const saveEditBudgetLine = () => {
+    if (!editingBudgetLineId) return;
+    const line = state.budgets.find((x) => x.id === editingBudgetLineId);
+    if (!line) {
+      cancelEditBudgetLine();
+      return;
+    }
+    const raw = editBudgetDraft.amount.replace(/[$,\s]/g, "").trim();
+    const amt = Number.parseFloat(raw);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setMessage({ type: "error", text: uiText(ui, "errBudgetAmountInvalid") });
+      return;
+    }
+    if (!editBudgetDraft.categoryId) {
+      setMessage({ type: "error", text: uiText(ui, "errBudgetNoCategory") });
+      return;
+    }
+    if (
+      state.budgets.some(
+        (b) => b.categoryId === editBudgetDraft.categoryId && b.id !== editingBudgetLineId,
+      )
+    ) {
+      setMessage({
+        type: "error",
+        text: formatUi(ui, "errBudgetLineExists", {
+          name: categoryById.get(editBudgetDraft.categoryId)?.name ?? editBudgetDraft.categoryId,
+        }),
+      });
+      return;
+    }
+    const cat = categoryById.get(editBudgetDraft.categoryId);
+    const label =
+      editBudgetDraft.label.trim() || cat?.name || uiText(ui, "budgetAddLabelFallback");
+    persist({
+      ...state,
+      budgets: state.budgets.map((b) =>
+        b.id === editingBudgetLineId
+          ? { ...b, categoryId: editBudgetDraft.categoryId, label, amount: amt }
+          : b,
+      ),
+    });
+    cancelEditBudgetLine();
+    setMessage({ type: "ok", text: uiText(ui, "msgSavedBudgetLine") });
+  };
+
+  const deleteBudgetLine = (id: string) => {
+    if (!window.confirm(uiText(ui, "confirmDeleteBudgetLine"))) return;
+    persist({ ...state, budgets: state.budgets.filter((b) => b.id !== id) });
+    if (editingBudgetLineId === id) cancelEditBudgetLine();
+    setMessage({ type: "ok", text: uiText(ui, "msgDeletedBudgetLine") });
   };
 
   const clearPurchases = () => {
@@ -771,19 +876,106 @@ export function App({ bootstrap, persistence }: AppProps) {
                   <th>{uiText(ui, "thCategory")}</th>
                   <th className="amount">{uiText(ui, "thAmount")}</th>
                   <th>{uiText(ui, "thSource")}</th>
+                  <th className="budget-actions-col">{uiText(ui, "thBudgetActions")}</th>
                 </tr>
               </thead>
               <tbody>
-                {state.budgets.map((b) => (
-                  <tr key={b.id}>
-                    <td>{b.label}</td>
-                    <td>{categoryById.get(b.categoryId)?.name ?? b.categoryId}</td>
-                    <td className="amount">{b.amount.toFixed(2)}</td>
-                    <td className="subtle">
-                      {isManualBudgetLine(b) ? uiText(ui, "manualBudgetSource") : b.sourceFileName}
-                    </td>
-                  </tr>
-                ))}
+                {state.budgets.map((b) =>
+                  editingBudgetLineId === b.id ? (
+                    <tr key={b.id}>
+                      <td>
+                        <input
+                          type="text"
+                          className="budget-edit-input"
+                          value={editBudgetDraft.label}
+                          onChange={(e) =>
+                            setEditBudgetDraft((d) => ({ ...d, label: e.target.value }))
+                          }
+                          aria-label={uiText(ui, "thLabel")}
+                        />
+                      </td>
+                      <td>
+                        <select
+                          value={editBudgetDraft.categoryId}
+                          onChange={(e) =>
+                            setEditBudgetDraft((d) => ({
+                              ...d,
+                              categoryId: e.target.value,
+                            }))
+                          }
+                          aria-label={uiText(ui, "thCategory")}
+                        >
+                          {categoriesForBudgetLineEdit.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="amount">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className="budget-edit-input budget-edit-amount"
+                          value={editBudgetDraft.amount}
+                          onChange={(e) =>
+                            setEditBudgetDraft((d) => ({ ...d, amount: e.target.value }))
+                          }
+                          aria-label={uiText(ui, "budgetAddAmount")}
+                        />
+                      </td>
+                      <td className="subtle">
+                        {isManualBudgetLine(b) ? uiText(ui, "manualBudgetSource") : b.sourceFileName}
+                      </td>
+                      <td>
+                        <div className="budget-actions">
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={saveEditBudgetLine}
+                          >
+                            {uiText(ui, "saveBudgetLineEdit")}
+                          </button>
+                          <button type="button" className="btn btn-sm" onClick={cancelEditBudgetLine}>
+                            {uiText(ui, "cancelBudgetLineEdit")}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={b.id}>
+                      <td>{b.label}</td>
+                      <td>{categoryById.get(b.categoryId)?.name ?? b.categoryId}</td>
+                      <td className="amount">{b.amount.toFixed(2)}</td>
+                      <td className="subtle">
+                        {isManualBudgetLine(b) ? uiText(ui, "manualBudgetSource") : b.sourceFileName}
+                      </td>
+                      <td>
+                        <div className="budget-actions">
+                          <button
+                            type="button"
+                            className="btn-icon"
+                            onClick={() => startEditBudgetLine(b)}
+                            disabled={editingBudgetLineId !== null && editingBudgetLineId !== b.id}
+                            aria-label={uiText(ui, "editBudgetLineAria")}
+                            title={uiText(ui, "editBudgetLineAria")}
+                          >
+                            <IconPencil />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-icon btn-icon-danger"
+                            onClick={() => deleteBudgetLine(b.id)}
+                            aria-label={uiText(ui, "deleteBudgetLineAria")}
+                            title={uiText(ui, "deleteBudgetLineAria")}
+                          >
+                            <IconTrash />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
           </div>

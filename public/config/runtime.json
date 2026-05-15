@@ -185,6 +185,14 @@
     "errBudgetLineExists": "A budget line for \"{name}\" already exists.",
     "budgetAddAllCategoriesHaveLines": "Every category already has a budget line. Clear the budget, import a different file, or add a new category to add more.",
     "budgetAddNoEligibleCategory": "No categories left — add a category or clear budget lines",
-    "errBudgetNoCategory": "Pick a category for the budget line."
+    "errBudgetNoCategory": "Pick a category for the budget line.",
+    "thBudgetActions": "Actions",
+    "editBudgetLineAria": "Edit budget line",
+    "deleteBudgetLineAria": "Delete budget line",
+    "saveBudgetLineEdit": "Save",
+    "cancelBudgetLineEdit": "Cancel",
+    "confirmDeleteBudgetLine": "Remove this budget line?",
+    "msgDeletedBudgetLine": "Budget line removed.",
+    "msgSavedBudgetLine": "Budget line updated."
   }
 }

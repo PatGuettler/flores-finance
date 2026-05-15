@@ -527,3 +527,68 @@ code {
 .category-quick-add-help {
   margin: 0 0 0.65rem;
 }
+
+.budget-actions-col {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.budget-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.45rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-icon:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.btn-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-icon-danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-sm {
+  font-size: 0.8rem;
+  padding: 0.3rem 0.55rem;
+}
+
+.budget-edit-input {
+  width: 100%;
+  max-width: 220px;
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.85rem;
+}
+
+.budget-edit-amount {
+  max-width: 120px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
