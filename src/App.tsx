@@ -16,7 +16,6 @@ import {
   readFileToTables,
 } from "./parseFile";
 import { ProfileMenu, ProfileMenuTrigger } from "./ProfileMenu";
-import { generateMockPurchasesAndBudgets } from "./mockData";
 import {
   applyUserSettingsToDocument,
   loadUserSettings,
@@ -54,10 +53,13 @@ function isUserAbortError(e: unknown): boolean {
   return e instanceof Error && e.name === "AbortError";
 }
 
-async function downloadPublicSample(path: string, filename: string): Promise<void> {
+function publicSampleUrl(path: string): string {
   const baseHref = new URL(import.meta.env.BASE_URL, window.location.href).href;
-  const url = new URL(path.replace(/^\//, ""), baseHref).href;
-  const res = await fetch(url);
+  return new URL(path.replace(/^\//, ""), baseHref).href;
+}
+
+async function downloadPublicSample(path: string, filename: string): Promise<void> {
+  const res = await fetch(publicSampleUrl(path));
   if (!res.ok) throw new Error(`Could not download ${filename} (${res.status})`);
   const blob = await res.blob();
   const objectUrl = URL.createObjectURL(blob);
@@ -69,6 +71,14 @@ async function downloadPublicSample(path: string, filename: string): Promise<voi
   a.click();
   a.remove();
   URL.revokeObjectURL(objectUrl);
+}
+
+/** Same bytes as the profile demo downloads; used so “Load mock data” matches those CSVs. */
+async function fetchPublicSampleFile(path: string, filename: string): Promise<File> {
+  const res = await fetch(publicSampleUrl(path));
+  if (!res.ok) throw new Error(`Could not load ${filename} (${res.status})`);
+  const text = await res.text();
+  return new File([text], filename, { type: "text/csv" });
 }
 
 function IconPencil() {
@@ -614,26 +624,61 @@ export function App({ bootstrap, persistence, initialAppState }: AppProps) {
     }
   };
 
-  const loadMockDataFromProfile = () => {
+  const loadMockDataFromProfile = async () => {
     if (state.categories.length === 0) {
       setMessage({ type: "error", text: uiText(ui, "errMockDataNoCategories") });
       return;
     }
     if (!window.confirm(uiText(ui, "confirmLoadMockData"))) return;
-    const { purchases, budgets } = generateMockPurchasesAndBudgets(state.categories);
-    persist((prev) => ({
-      ...prev,
-      purchases: [...prev.purchases, ...purchases],
-      budgets: [...prev.budgets, ...budgets],
-    }));
-    setProfileOpen(false);
-    setMessage({
-      type: "ok",
-      text: formatUi(ui, "msgLoadedMockData", {
-        purchases: purchases.length,
-        budgets: budgets.length,
-      }),
-    });
+    try {
+      const creditFile = await fetchPublicSampleFile(
+        "samples/fake-credit-card.csv",
+        "fake-credit-card.csv",
+      );
+      const budgetFile = await fetchPublicSampleFile("samples/fake-budget.csv", "fake-budget.csv");
+      const txTables = await readFileToTables(creditFile, patterns.transactions.errors.emptyWorkbook);
+      const purchases = parseTransactionTables(
+        txTables,
+        state.categories,
+        state.merchantRules,
+        creditFile.name,
+        patterns,
+        manifest.fallbackCategoryId,
+        uiText(ui, "emptyDescription"),
+      );
+      const budTables = await readFileToTables(budgetFile, patterns.transactions.errors.emptyWorkbook);
+      const importedBudgets: BudgetLine[] = [];
+      for (const t of budTables) {
+        importedBudgets.push(
+          ...parseBudgetTable(
+            t,
+            state.categories,
+            state.merchantRules,
+            budgetFile.name,
+            patterns,
+            manifest.fallbackCategoryId,
+          ),
+        );
+      }
+      persist((prev) => ({
+        ...prev,
+        purchases: [...prev.purchases, ...purchases],
+        budgets: [...prev.budgets.filter((b) => isManualBudgetLine(b)), ...importedBudgets],
+      }));
+      setProfileOpen(false);
+      setMessage({
+        type: "ok",
+        text: formatUi(ui, "msgLoadedMockData", {
+          purchases: purchases.length,
+          budgets: importedBudgets.length,
+        }),
+      });
+    } catch (e) {
+      setMessage({
+        type: "error",
+        text: e instanceof Error ? e.message : String(e),
+      });
+    }
   };
 
   const onImportState = async (file: File | null) => {

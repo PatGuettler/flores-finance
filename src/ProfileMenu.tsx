@@ -9,7 +9,7 @@ export type ProfileMenuProps = {
   onSettingsChange: (next: UserSettings) => void;
   onDownloadDemoCredit: () => void | Promise<void>;
   onDownloadDemoBudget: () => void | Promise<void>;
-  onLoadMockData: () => void;
+  onLoadMockData: () => void | Promise<void>;
 };
 
 function uiText(ui: Record<string, string>, key: string): string {
@@ -241,9 +241,7 @@ export function ProfileMenu({
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => {
-              onLoadMockData();
-            }}
+            onClick={() => void onLoadMockData()}
           >
             {uiText(ui, "settingsLoadMockData")}
           </button>
