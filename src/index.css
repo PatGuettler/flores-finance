@@ -592,3 +592,18 @@ code {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+.budget-lines-table {
+  max-height: min(520px, 70vh);
+}
+
+.budget-unplanned-sep td {
+  padding-top: 0.85rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.budget-unplanned-row td {
+  vertical-align: middle;
+}

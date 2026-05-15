@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppBootstrap } from "./runtime/manifest";
 import type { AppState, BudgetLine, Category, Purchase } from "./types";
 import {
@@ -88,7 +88,7 @@ function IconTrash() {
 function useAppState(
   bootstrap: AppBootstrap,
   persistence: Persistence,
-): [AppState, (s: AppState) => void] {
+): [AppState, (next: AppState | ((prev: AppState) => AppState)) => void] {
   const { manifest, initialCategories, initialMerchantRules } = bootstrap;
   const [state, setState] = useState<AppState>(() => {
     return (
@@ -98,9 +98,12 @@ function useAppState(
   });
 
   const persist = useCallback(
-    (next: AppState) => {
-      setState(next);
-      persistence.saveStateToLocalStorage(next);
+    (next: AppState | ((prev: AppState) => AppState)) => {
+      setState((prev) => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        persistence.saveStateToLocalStorage(resolved);
+        return resolved;
+      });
     },
     [persistence],
   );
@@ -155,6 +158,7 @@ export function App({ bootstrap, persistence }: AppProps) {
     label: string;
     amount: string;
   }>({ categoryId: "", label: "", amount: "" });
+  const budgetAmountInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setCategoryQuickAdd({ kind: "none" });
@@ -283,10 +287,10 @@ export function App({ bootstrap, persistence }: AppProps) {
         manifest.fallbackCategoryId,
         uiText(ui, "emptyDescription"),
       );
-      persist({
-        ...state,
-        purchases: [...state.purchases, ...parsed],
-      });
+      persist((prev) => ({
+        ...prev,
+        purchases: [...prev.purchases, ...parsed],
+      }));
       setMessage({
         type: "ok",
         text: formatUi(ui, "msgImportedTransactions", { count: parsed.length, file: file.name }),
@@ -316,10 +320,10 @@ export function App({ bootstrap, persistence }: AppProps) {
           ),
         );
       }
-      persist({
-        ...state,
-        budgets: [...state.budgets.filter((b) => isManualBudgetLine(b)), ...all],
-      });
+      persist((prev) => ({
+        ...prev,
+        budgets: [...prev.budgets.filter((b) => isManualBudgetLine(b)), ...all],
+      }));
       setMessage({
         type: "ok",
         text: formatUi(ui, "msgImportedBudget", { count: all.length, file: file.name }),
@@ -333,10 +337,10 @@ export function App({ bootstrap, persistence }: AppProps) {
   };
 
   const updatePurchaseCategory = (id: string, categoryId: string) => {
-    persist({
-      ...state,
-      purchases: state.purchases.map((p) => (p.id === id ? { ...p, categoryId } : p)),
-    });
+    persist((prev) => ({
+      ...prev,
+      purchases: prev.purchases.map((p) => (p.id === id ? { ...p, categoryId } : p)),
+    }));
   };
 
   const addUserCategory = () => {
@@ -345,7 +349,11 @@ export function App({ bootstrap, persistence }: AppProps) {
       setMessage({ type: "error", text: uiText(ui, "errCategoryNameRequired") });
       return;
     }
-    persist(built.next);
+    persist((prev) => {
+      const b = appendCategoryToState(prev, newCategoryName, newCategoryColor);
+      if (!b) return prev;
+      return b.next;
+    });
     setNewCategoryName("");
     setMessage({
       type: "ok",
@@ -360,17 +368,21 @@ export function App({ bootstrap, persistence }: AppProps) {
   };
 
   const submitQuickCategoryAdd = () => {
-    const assignPurchaseId =
-      categoryQuickAdd.kind === "purchase" ? categoryQuickAdd.purchaseId : undefined;
+    const kind = categoryQuickAdd.kind;
+    const assignPurchaseId = kind === "purchase" ? categoryQuickAdd.purchaseId : undefined;
     const built = appendCategoryToState(state, quickAddName, quickAddColor, assignPurchaseId);
     if (!built) {
       setMessage({ type: "error", text: uiText(ui, "errCategoryNameRequired") });
       return;
     }
-    persist(built.next);
-    if (categoryQuickAdd.kind === "budget") {
-      setBudgetLineCategoryId(built.newId);
-    }
+    let newBudgetCatId: string | undefined;
+    persist((prev) => {
+      const b = appendCategoryToState(prev, quickAddName, quickAddColor, assignPurchaseId);
+      if (!b) return prev;
+      if (kind === "budget") newBudgetCatId = b.newId;
+      return b.next;
+    });
+    if (newBudgetCatId) setBudgetLineCategoryId(newBudgetCatId);
     const addedName = quickAddName.trim();
     cancelQuickCategoryAdd();
     setMessage({
@@ -409,10 +421,21 @@ export function App({ bootstrap, persistence }: AppProps) {
       amount: amt,
       sourceFileName: MANUAL_BUDGET_SOURCE,
     };
-    persist({ ...state, budgets: [...state.budgets, line] });
+    persist((prev) => ({
+      ...prev,
+      budgets: [...prev.budgets, line],
+    }));
     setBudgetLineAmount("");
     setBudgetLineLabel("");
     setMessage({ type: "ok", text: uiText(ui, "msgAddedBudgetLine") });
+  };
+
+  const planBudgetForCategory = (categoryId: string) => {
+    setBudgetLineCategoryId(categoryId);
+    window.requestAnimationFrame(() => {
+      budgetAmountInputRef.current?.focus();
+      budgetAmountInputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
   };
 
   const cancelEditBudgetLine = () => {
@@ -465,34 +488,37 @@ export function App({ bootstrap, persistence }: AppProps) {
     const cat = categoryById.get(editBudgetDraft.categoryId);
     const label =
       editBudgetDraft.label.trim() || cat?.name || uiText(ui, "budgetAddLabelFallback");
-    persist({
-      ...state,
-      budgets: state.budgets.map((b) =>
+    persist((prev) => ({
+      ...prev,
+      budgets: prev.budgets.map((b) =>
         b.id === editingBudgetLineId
           ? { ...b, categoryId: editBudgetDraft.categoryId, label, amount: amt }
           : b,
       ),
-    });
+    }));
     cancelEditBudgetLine();
     setMessage({ type: "ok", text: uiText(ui, "msgSavedBudgetLine") });
   };
 
   const deleteBudgetLine = (id: string) => {
     if (!window.confirm(uiText(ui, "confirmDeleteBudgetLine"))) return;
-    persist({ ...state, budgets: state.budgets.filter((b) => b.id !== id) });
+    persist((prev) => ({
+      ...prev,
+      budgets: prev.budgets.filter((b) => b.id !== id),
+    }));
     if (editingBudgetLineId === id) cancelEditBudgetLine();
     setMessage({ type: "ok", text: uiText(ui, "msgDeletedBudgetLine") });
   };
 
   const clearPurchases = () => {
     if (!window.confirm(uiText(ui, "confirmClearPurchases"))) return;
-    persist({ ...state, purchases: [] });
+    persist((prev) => ({ ...prev, purchases: [] }));
     setMessage({ type: "ok", text: uiText(ui, "msgClearedPurchases") });
   };
 
   const clearBudgets = () => {
     if (!window.confirm(uiText(ui, "confirmClearBudget"))) return;
-    persist({ ...state, budgets: [] });
+    persist((prev) => ({ ...prev, budgets: [] }));
     setMessage({ type: "ok", text: uiText(ui, "msgClearedBudget") });
   };
 
@@ -542,6 +568,11 @@ export function App({ bootstrap, persistence }: AppProps) {
 
   const dash = uiText(ui, "dashPlaceholder");
   const barTitleTemplate = uiText(ui, "labelPercentOfBudget");
+
+  const budgetLinesNewestFirst = useMemo(
+    () => [...state.budgets].slice().reverse(),
+    [state.budgets],
+  );
 
   const quickCategoryAddBlock =
     categoryQuickAdd.kind === "purchase" || categoryQuickAdd.kind === "budget" ? (
@@ -839,6 +870,8 @@ export function App({ bootstrap, persistence }: AppProps) {
             <label className="profile-field" style={{ minWidth: 120, flex: "0 1 120px" }}>
               <span>{uiText(ui, "budgetAddAmount")}</span>
               <input
+                ref={budgetAmountInputRef}
+                id="budget-line-amount-input"
                 type="text"
                 inputMode="decimal"
                 value={budgetLineAmount}
@@ -868,7 +901,10 @@ export function App({ bootstrap, persistence }: AppProps) {
           </div>
 
           <h3 style={{ marginTop: "1rem" }}>{uiText(ui, "budgetLinesTitle")}</h3>
-          <div className="table-wrap" style={{ maxHeight: 280 }}>
+          <p className="subtle" style={{ marginBottom: "0.65rem" }}>
+            {uiText(ui, "budgetLinesIntro")}
+          </p>
+          <div className="table-wrap budget-lines-table">
             <table>
               <thead>
                 <tr>
@@ -880,8 +916,17 @@ export function App({ bootstrap, persistence }: AppProps) {
                 </tr>
               </thead>
               <tbody>
-                {state.budgets.map((b) =>
-                  editingBudgetLineId === b.id ? (
+                {state.budgets.length === 0 && categoriesEligibleForBudgetLine.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="subtle">
+                      {uiText(ui, "budgetLinesEmpty")}
+                    </td>
+                  </tr>
+                ) : null}
+                {state.budgets.length > 0 ? (
+                  <>
+                    {budgetLinesNewestFirst.map((b) =>
+                    editingBudgetLineId === b.id ? (
                     <tr key={b.id}>
                       <td>
                         <input
@@ -975,7 +1020,33 @@ export function App({ bootstrap, persistence }: AppProps) {
                       </td>
                     </tr>
                   )
-                )}
+                    )}
+                  </>
+                ) : null}
+                {state.budgets.length > 0 && categoriesEligibleForBudgetLine.length > 0 ? (
+                  <tr key="budget-unplanned-sep">
+                    <td colSpan={5} className="subtle budget-unplanned-sep">
+                      {uiText(ui, "budgetUnplannedSectionTitle")}
+                    </td>
+                  </tr>
+                ) : null}
+                {categoriesEligibleForBudgetLine.map((c) => (
+                  <tr key={`unplanned-${c.id}`} className="budget-unplanned-row">
+                    <td className="subtle">{uiText(ui, "budgetUnplannedLabelCell")}</td>
+                    <td>{c.name}</td>
+                    <td className="amount subtle">{uiText(ui, "dashPlaceholder")}</td>
+                    <td className="subtle">{uiText(ui, "budgetUnplannedSource")}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        onClick={() => planBudgetForCategory(c.id)}
+                      >
+                        {uiText(ui, "budgetPlanAmount")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
