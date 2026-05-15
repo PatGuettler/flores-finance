@@ -9,6 +9,7 @@ export type ProfileMenuProps = {
   onSettingsChange: (next: UserSettings) => void;
   onDownloadDemoCredit: () => void | Promise<void>;
   onDownloadDemoBudget: () => void | Promise<void>;
+  onLoadMockData: () => void;
 };
 
 function uiText(ui: Record<string, string>, key: string): string {
@@ -61,6 +62,7 @@ export function ProfileMenu({
   onSettingsChange,
   onDownloadDemoCredit,
   onDownloadDemoBudget,
+  onLoadMockData,
 }: ProfileMenuProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -231,6 +233,20 @@ export function ProfileMenu({
               {uiText(ui, "settingsDownloadDemoBudget")}
             </button>
           </div>
+        </section>
+
+        <section className="profile-section" aria-label={uiText(ui, "settingsSectionMockData")}>
+          <h3 className="profile-section-title">{uiText(ui, "settingsSectionMockData")}</h3>
+          <p className="subtle profile-hint">{uiText(ui, "settingsMockDataHelp")}</p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              onLoadMockData();
+            }}
+          >
+            {uiText(ui, "settingsLoadMockData")}
+          </button>
         </section>
       </div>
     </div>

@@ -16,6 +16,7 @@ import {
   readFileToTables,
 } from "./parseFile";
 import { ProfileMenu, ProfileMenuTrigger } from "./ProfileMenu";
+import { generateMockPurchasesAndBudgets } from "./mockData";
 import {
   applyUserSettingsToDocument,
   loadUserSettings,
@@ -611,6 +612,28 @@ export function App({ bootstrap, persistence, initialAppState }: AppProps) {
         text: e instanceof Error ? e.message : String(e),
       });
     }
+  };
+
+  const loadMockDataFromProfile = () => {
+    if (state.categories.length === 0) {
+      setMessage({ type: "error", text: uiText(ui, "errMockDataNoCategories") });
+      return;
+    }
+    if (!window.confirm(uiText(ui, "confirmLoadMockData"))) return;
+    const { purchases, budgets } = generateMockPurchasesAndBudgets(state.categories);
+    persist((prev) => ({
+      ...prev,
+      purchases: [...prev.purchases, ...purchases],
+      budgets: [...prev.budgets, ...budgets],
+    }));
+    setProfileOpen(false);
+    setMessage({
+      type: "ok",
+      text: formatUi(ui, "msgLoadedMockData", {
+        purchases: purchases.length,
+        budgets: budgets.length,
+      }),
+    });
   };
 
   const onImportState = async (file: File | null) => {
@@ -1375,6 +1398,7 @@ export function App({ bootstrap, persistence, initialAppState }: AppProps) {
         onSettingsChange={setUserSettings}
         onDownloadDemoCredit={() => downloadDemo("samples/fake-credit-card.csv", "fake-credit-card.csv")}
         onDownloadDemoBudget={() => downloadDemo("samples/fake-budget.csv", "fake-budget.csv")}
+        onLoadMockData={loadMockDataFromProfile}
       />
     </>
   );
