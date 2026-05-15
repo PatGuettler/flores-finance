@@ -213,6 +213,12 @@
     "cancelBudgetLineEdit": "Cancel",
     "confirmDeleteBudgetLine": "Remove this budget line?",
     "msgDeletedBudgetLine": "Budget line removed.",
-    "msgSavedBudgetLine": "Budget line updated."
+    "msgSavedBudgetLine": "Budget line updated.",
+    "deleteCategoryZeroSpendButton": "Remove category",
+    "deleteCategoryZeroSpendAria": "Delete this category (no spending recorded in it)",
+    "confirmDeleteCategory": "Delete category \"{name}\"? Its budget lines and merchant rules targeting it will be removed. Purchases in this category move to Other.",
+    "errCannotDeleteFallbackCategory": "Cannot delete the default Other / fallback category.",
+    "errCannotDeleteCategoryWithSpend": "Cannot delete this category while spending is recorded ({amount}).",
+    "msgDeletedCategory": "Deleted category \"{name}\"."
   }
 }

@@ -22,7 +22,10 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-      - run: npm ci && npm run build
+      - name: Install and build
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: npm ci && npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

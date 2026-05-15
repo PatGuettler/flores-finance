@@ -532,6 +532,48 @@ export function App({ bootstrap, persistence, initialAppState }: AppProps) {
     setMessage({ type: "ok", text: uiText(ui, "msgDeletedBudgetLine") });
   };
 
+  const canDeleteCategoryWithZeroSpend = (categoryId: string): boolean =>
+    categoryId !== manifest.fallbackCategoryId && (spendByCat.get(categoryId) ?? 0) <= 0;
+
+  const deleteCategoryWithZeroSpend = (categoryId: string) => {
+    if (categoryId === manifest.fallbackCategoryId) {
+      setMessage({ type: "error", text: uiText(ui, "errCannotDeleteFallbackCategory") });
+      return;
+    }
+    const spent = spendByCat.get(categoryId) ?? 0;
+    if (spent > 0) {
+      setMessage({
+        type: "error",
+        text: formatUi(ui, "errCannotDeleteCategoryWithSpend", {
+          amount: spent.toFixed(2),
+        }),
+      });
+      return;
+    }
+    const name = categoryById.get(categoryId)?.name ?? categoryId;
+    if (!window.confirm(formatUi(ui, "confirmDeleteCategory", { name }))) return;
+
+    if (editingBudgetLineId) {
+      const bl = state.budgets.find((x) => x.id === editingBudgetLineId);
+      if (bl?.categoryId === categoryId) cancelEditBudgetLine();
+    }
+    if (categoryQuickAdd.kind === "budget" && categoryQuickAdd.prevCategoryId === categoryId) {
+      setCategoryQuickAdd({ kind: "none" });
+    }
+
+    const fb = manifest.fallbackCategoryId;
+    persist((prev) => ({
+      ...prev,
+      categories: prev.categories.filter((c) => c.id !== categoryId),
+      merchantRules: prev.merchantRules.filter((r) => r.categoryId !== categoryId),
+      purchases: prev.purchases.map((p) =>
+        p.categoryId === categoryId ? { ...p, categoryId: fb } : p,
+      ),
+      budgets: prev.budgets.filter((b) => b.categoryId !== categoryId),
+    }));
+    setMessage({ type: "ok", text: formatUi(ui, "msgDeletedCategory", { name }) });
+  };
+
   const clearPurchases = () => {
     if (!window.confirm(uiText(ui, "confirmClearPurchases"))) return;
     persist((prev) => ({ ...prev, purchases: [] }));
@@ -1071,6 +1113,16 @@ export function App({ bootstrap, persistence, initialAppState }: AppProps) {
                               >
                                 <IconTrash />
                               </button>
+                              {canDeleteCategoryWithZeroSpend(b.categoryId) ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm"
+                                  onClick={() => deleteCategoryWithZeroSpend(b.categoryId)}
+                                  title={uiText(ui, "deleteCategoryZeroSpendAria")}
+                                >
+                                  {uiText(ui, "deleteCategoryZeroSpendButton")}
+                                </button>
+                              ) : null}
                             </div>
                           </td>
                         </tr>
@@ -1107,13 +1159,26 @@ export function App({ bootstrap, persistence, initialAppState }: AppProps) {
                         <td className="amount subtle">{uiText(ui, "dashPlaceholder")}</td>
                         <td className="subtle">{uiText(ui, "budgetUnplannedSource")}</td>
                         <td>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-primary"
-                            onClick={() => planBudgetForCategory(c.id)}
-                          >
-                            {uiText(ui, "budgetPlanAmount")}
-                          </button>
+                          <div className="budget-actions">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary"
+                              onClick={() => planBudgetForCategory(c.id)}
+                            >
+                              {uiText(ui, "budgetPlanAmount")}
+                            </button>
+                            {canDeleteCategoryWithZeroSpend(c.id) ? (
+                              <button
+                                type="button"
+                                className="btn-icon btn-icon-danger"
+                                onClick={() => deleteCategoryWithZeroSpend(c.id)}
+                                aria-label={uiText(ui, "deleteCategoryZeroSpendAria")}
+                                title={uiText(ui, "deleteCategoryZeroSpendAria")}
+                              >
+                                <IconTrash />
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))

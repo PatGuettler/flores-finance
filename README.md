@@ -49,7 +49,7 @@ npm run preview # serves dist/ locally
 3. The workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) builds on every push to `main` or `master` and publishes the `dist/` folder to GitHub Pages.
 4. After the first successful run, open the **Pages** environment URL shown in the workflow summary. If the site was previously set to branch publishing, switch the source to **GitHub Actions** and wait for a new **“pages build and deployment”** run to finish.
 
-`vite.config.ts` sets `base: "./"` so asset paths resolve correctly on a project Pages site.
+The Pages workflow sets `VITE_BASE` to `/{repository-name}/` so scripts and styles load on project sites like `https://USERNAME.github.io/REPO-NAME/` even without a trailing slash. Local builds omit it and use `base: "./"`.
 
 ## CI and AWS-style static deploy
 
