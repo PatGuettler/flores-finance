@@ -44,9 +44,10 @@ npm run preview # serves dist/ locally
 ## GitHub Pages (test hosting)
 
 1. Push this repository to GitHub (this folder as the repo root).
-2. In the repository **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions**.
+2. In the repository **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions** (not “Deploy from a branch”).  
+   **Why:** “Deploy from a branch” with **/ (root)** only serves files from the **repository root** on that branch. This project has no `index.html` there (the Vite entry lives in [`root/index.html`](root/index.html), which is a *folder named `root`*—not the same as GitHub’s “(root)” option). The live site is produced by the workflow into **`dist/`**, which Actions deploys.
 3. The workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) builds on every push to `main` or `master` and publishes the `dist/` folder to GitHub Pages.
-4. After the first successful run, open the **Pages** environment URL shown in the workflow summary.
+4. After the first successful run, open the **Pages** environment URL shown in the workflow summary. If the site was previously set to branch publishing, switch the source to **GitHub Actions** and wait for a new **“pages build and deployment”** run to finish.
 
 `vite.config.ts` sets `base: "./"` so asset paths resolve correctly on a project Pages site.
 
