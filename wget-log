@@ -1,0 +1,11 @@
+--2026-05-14 20:50:05--  https://downloads.cursor.com/production/93e603f703cd553a6bb3644711a3379bbbb3118f/linux/x64/cursor-reh-linux-x64.tar.gz
+Resolving downloads.cursor.com (downloads.cursor.com)... 104.18.16.128, 104.18.17.128, 2606:4700::6812:1080, ...
+Connecting to downloads.cursor.com (downloads.cursor.com)|104.18.16.128|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 102943310 (98M) [application/gzip]
+Saving to: ‘/home/guettlerpj/.cursor-server/bin/93e603f703cd553a6bb3644711a3379bbbb31180-1778809805456114799.tar.gz’
+
+               /home/guettler   0%[                                                  ]       0  --.-KB/s                             /home/guettlerp   7%[==>                                               ]   7.58M  34.5MB/s                            /home/guettlerpj  24%[===========>                                      ]  24.11M  57.4MB/s                           /home/guettlerpj/  39%[==================>                               ]  38.65M  61.5MB/s                          /home/guettlerpj/.  54%[==========================>                       ]  53.37M  64.4MB/s                         /home/guettlerpj/.c  68%[=================================>                ]  67.03M  64.6MB/s                        /home/guettlerpj/.cu  83%[========================================>         ]  82.42M  64.9MB/s               /home/guettlerpj/.cursor-serv 100%[=================================================>]  98.17M  67.0MB/s    in 1.5s    
+
+2026-05-14 20:50:07 (67.0 MB/s) - ‘/home/guettlerpj/.cursor-server/bin/93e603f703cd553a6bb3644711a3379bbbb31180-1778809805456114799.tar.gz’ saved [102943310/102943310]
+

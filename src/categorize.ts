@@ -152,6 +152,47 @@ function typeContainsAny(typeCol: string, tokens: string[]): boolean {
   return tokens.some((t) => typeCol.includes(t));
 }
 
+/** Best-effort issuer "Category" column from a stored purchase row (same heuristics as import). */
+export function inferBankCategoryFromRawRow(
+  row: Record<string, string>,
+  patterns: ImportPatterns,
+): string | undefined {
+  const headers = Object.keys(row);
+  if (headers.length === 0) return undefined;
+  const columnMap = inferColumnMap(headers, patterns);
+  return pickColumn(row, columnMap.categoryKeys);
+}
+
+export function recategorizePurchase(
+  p: Purchase,
+  rules: MerchantRule[],
+  categories: Category[],
+  patterns: ImportPatterns,
+  fallbackCategoryId: string,
+): Purchase {
+  const bankCategory = inferBankCategoryFromRawRow(p.rawRow, patterns);
+  const categoryId = categorizeDescription(
+    p.description,
+    rules,
+    categories,
+    fallbackCategoryId,
+    bankCategory,
+  );
+  return { ...p, categoryId };
+}
+
+export function recategorizePurchases(
+  purchases: Purchase[],
+  rules: MerchantRule[],
+  categories: Category[],
+  patterns: ImportPatterns,
+  fallbackCategoryId: string,
+): Purchase[] {
+  return purchases.map((p) =>
+    recategorizePurchase(p, rules, categories, patterns, fallbackCategoryId),
+  );
+}
+
 export function buildPurchaseFromRow(params: {
   row: Record<string, string>;
   columnMap: ColumnMap;

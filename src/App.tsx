@@ -1,15 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AppBootstrap } from "./runtime/manifest";
 import type { AppState, BudgetLine, Category, Purchase } from "./types";
-import { createEmptyState } from "./types";
+import {
+  createEmptyState,
+  newId,
+  uniqueCategoryId,
+  MANUAL_BUDGET_SOURCE,
+  isManualBudgetLine,
+} from "./types";
+import { recategorizePurchases } from "./categorize";
 import type { Persistence } from "./storage";
 import {
   parseBudgetTable,
   parseTransactionTables,
   readFileToTables,
 } from "./parseFile";
+import { ProfileMenu, ProfileMenuTrigger } from "./ProfileMenu";
+import {
+  applyUserSettingsToDocument,
+  loadUserSettings,
+  saveUserSettings,
+  type UserSettings,
+} from "./userSettings";
 
 type Tab = "dashboard" | "transactions" | "budget" | "data";
+
+const ADD_CATEGORY_SELECT_VALUE = "__add_category__";
+
+type CategoryQuickAdd =
+  | { kind: "none" }
+  | { kind: "purchase"; purchaseId: string; prevCategoryId: string }
+  | { kind: "budget"; prevCategoryId: string };
 
 function uiText(ui: Record<string, string>, key: string): string {
   const v = ui[key];
@@ -23,6 +44,23 @@ function formatUi(
   vars: Record<string, string | number>,
 ): string {
   return uiText(ui, key).replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ""));
+}
+
+async function downloadPublicSample(path: string, filename: string): Promise<void> {
+  const baseHref = new URL(import.meta.env.BASE_URL, window.location.href).href;
+  const url = new URL(path.replace(/^\//, ""), baseHref).href;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Could not download ${filename} (${res.status})`);
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 function useAppState(
@@ -79,12 +117,51 @@ export function App({ bootstrap, persistence }: AppProps) {
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(
     null,
   );
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [userSettings, setUserSettings] = useState<UserSettings>(() => loadUserSettings());
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryColor, setNewCategoryColor] = useState("#6366f1");
+  const [budgetLineCategoryId, setBudgetLineCategoryId] = useState("");
+  const [budgetLineAmount, setBudgetLineAmount] = useState("");
+  const [budgetLineLabel, setBudgetLineLabel] = useState("");
+  const [categoryQuickAdd, setCategoryQuickAdd] = useState<CategoryQuickAdd>({ kind: "none" });
+  const [quickAddName, setQuickAddName] = useState("");
+  const [quickAddColor, setQuickAddColor] = useState("#6366f1");
+
+  useEffect(() => {
+    setCategoryQuickAdd({ kind: "none" });
+    setQuickAddName("");
+    setQuickAddColor("#6366f1");
+  }, [tab]);
+
+  useEffect(() => {
+    saveUserSettings(userSettings);
+    applyUserSettingsToDocument(userSettings);
+  }, [userSettings]);
+
+  useEffect(() => {
+    if (userSettings.theme !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const sync = () => {
+      document.documentElement.dataset.theme = mq.matches ? "light" : "dark";
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, [userSettings.theme]);
 
   useEffect(() => {
     if (!message) return;
     const t = window.setTimeout(() => setMessage(null), 6000);
     return () => window.clearTimeout(t);
   }, [message]);
+
+  useEffect(() => {
+    if (state.categories.length === 0) return;
+    setBudgetLineCategoryId((id) =>
+      id && state.categories.some((c) => c.id === id) ? id : state.categories[0]!.id,
+    );
+  }, [state.categories]);
 
   const categoryById = useMemo(() => {
     const m = new Map<string, Category>();
@@ -97,8 +174,39 @@ export function App({ bootstrap, persistence }: AppProps) {
 
   const unknownColor = uiText(ui, "unknownCategoryColor");
 
+  const appendCategoryToState = (
+    base: AppState,
+    name: string,
+    color: string,
+    assignPurchaseId?: string,
+  ): { next: AppState; newId: string } | null => {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const c = color.trim() || unknownColor;
+    const id = uniqueCategoryId(trimmed, base.categories);
+    const cat: Category = { id, name: trimmed, color: c };
+    const nextCategories = [...base.categories, cat];
+    let nextPurchases = recategorizePurchases(
+      base.purchases,
+      base.merchantRules,
+      nextCategories,
+      patterns,
+      manifest.fallbackCategoryId,
+    );
+    if (assignPurchaseId) {
+      nextPurchases = nextPurchases.map((p) =>
+        p.id === assignPurchaseId ? { ...p, categoryId: id } : p,
+      );
+    }
+    return {
+      next: { ...base, categories: nextCategories, purchases: nextPurchases },
+      newId: id,
+    };
+  };
+
   const dashboardRows = useMemo(() => {
     const ids = new Set<string>();
+    for (const c of state.categories) ids.add(c.id);
     for (const k of spendByCat.keys()) ids.add(k);
     for (const k of budgetByCat.keys()) ids.add(k);
     return [...ids].map((id) => {
@@ -114,7 +222,7 @@ export function App({ bootstrap, persistence }: AppProps) {
         pct: budget > 0 ? Math.min(100, (spent / budget) * 100) : spent > 0 ? 100 : 0,
       };
     });
-  }, [spendByCat, budgetByCat, categoryById, unknownColor]);
+  }, [spendByCat, budgetByCat, categoryById, unknownColor, state.categories]);
 
   const onTransactionsFile = async (file: File | null) => {
     if (!file) return;
@@ -164,7 +272,7 @@ export function App({ bootstrap, persistence }: AppProps) {
       }
       persist({
         ...state,
-        budgets: all,
+        budgets: [...state.budgets.filter((b) => isManualBudgetLine(b)), ...all],
       });
       setMessage({
         type: "ok",
@@ -183,6 +291,69 @@ export function App({ bootstrap, persistence }: AppProps) {
       ...state,
       purchases: state.purchases.map((p) => (p.id === id ? { ...p, categoryId } : p)),
     });
+  };
+
+  const addUserCategory = () => {
+    const built = appendCategoryToState(state, newCategoryName, newCategoryColor);
+    if (!built) {
+      setMessage({ type: "error", text: uiText(ui, "errCategoryNameRequired") });
+      return;
+    }
+    persist(built.next);
+    setNewCategoryName("");
+    setMessage({
+      type: "ok",
+      text: formatUi(ui, "msgAddedCategory", { name: newCategoryName.trim() }),
+    });
+  };
+
+  const cancelQuickCategoryAdd = () => {
+    setCategoryQuickAdd({ kind: "none" });
+    setQuickAddName("");
+    setQuickAddColor("#6366f1");
+  };
+
+  const submitQuickCategoryAdd = () => {
+    const assignPurchaseId =
+      categoryQuickAdd.kind === "purchase" ? categoryQuickAdd.purchaseId : undefined;
+    const built = appendCategoryToState(state, quickAddName, quickAddColor, assignPurchaseId);
+    if (!built) {
+      setMessage({ type: "error", text: uiText(ui, "errCategoryNameRequired") });
+      return;
+    }
+    persist(built.next);
+    if (categoryQuickAdd.kind === "budget") {
+      setBudgetLineCategoryId(built.newId);
+    }
+    const addedName = quickAddName.trim();
+    cancelQuickCategoryAdd();
+    setMessage({
+      type: "ok",
+      text: formatUi(ui, "msgAddedCategory", { name: addedName }),
+    });
+  };
+
+  const addManualBudgetLine = () => {
+    const raw = budgetLineAmount.replace(/[$,\s]/g, "").trim();
+    const amt = Number.parseFloat(raw);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setMessage({ type: "error", text: uiText(ui, "errBudgetAmountInvalid") });
+      return;
+    }
+    const cat = categoryById.get(budgetLineCategoryId);
+    const label =
+      budgetLineLabel.trim() || cat?.name || uiText(ui, "budgetAddLabelFallback");
+    const line: BudgetLine = {
+      id: newId(),
+      categoryId: budgetLineCategoryId,
+      label,
+      amount: amt,
+      sourceFileName: MANUAL_BUDGET_SOURCE,
+    };
+    persist({ ...state, budgets: [...state.budgets, line] });
+    setBudgetLineAmount("");
+    setBudgetLineLabel("");
+    setMessage({ type: "ok", text: uiText(ui, "msgAddedBudgetLine") });
   };
 
   const clearPurchases = () => {
@@ -209,6 +380,21 @@ export function App({ bootstrap, persistence }: AppProps) {
     setMessage({ type: "ok", text: uiText(ui, "msgReset") });
   };
 
+  const downloadDemo = async (path: string, filename: string) => {
+    try {
+      await downloadPublicSample(path, filename);
+      setMessage({
+        type: "ok",
+        text: formatUi(ui, "msgDownloadedDemo", { file: filename }),
+      });
+    } catch (e) {
+      setMessage({
+        type: "error",
+        text: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
+
   const onImportState = async (file: File | null) => {
     if (!file) return;
     try {
@@ -229,14 +415,65 @@ export function App({ bootstrap, persistence }: AppProps) {
   const dash = uiText(ui, "dashPlaceholder");
   const barTitleTemplate = uiText(ui, "labelPercentOfBudget");
 
+  const quickCategoryAddBlock =
+    categoryQuickAdd.kind === "purchase" || categoryQuickAdd.kind === "budget" ? (
+      <div
+        className="category-quick-add drop"
+        role="region"
+        aria-label={uiText(ui, "categoryQuickAddAria")}
+      >
+        <h3 className="category-quick-add-title">{uiText(ui, "categoryQuickAddTitle")}</h3>
+        <p className="subtle category-quick-add-help">
+          {categoryQuickAdd.kind === "purchase"
+            ? uiText(ui, "categoryQuickAddHelpTransaction")
+            : uiText(ui, "categoryQuickAddHelpBudget")}
+        </p>
+        <div className="row" style={{ alignItems: "flex-end" }}>
+          <label className="profile-field" style={{ flex: "1 1 180px" }}>
+            <span>{uiText(ui, "addCategoryName")}</span>
+            <input
+              type="text"
+              value={quickAddName}
+              onChange={(e) => setQuickAddName(e.target.value)}
+              placeholder={uiText(ui, "addCategoryNamePlaceholder")}
+            />
+          </label>
+          <label className="profile-field" style={{ flex: "0 0 auto" }}>
+            <span>{uiText(ui, "addCategoryColor")}</span>
+            <input
+              type="color"
+              value={quickAddColor}
+              onChange={(e) => setQuickAddColor(e.target.value)}
+              aria-label={uiText(ui, "addCategoryColor")}
+              style={{
+                width: "3rem",
+                height: "2.25rem",
+                padding: 0,
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                cursor: "pointer",
+                background: "transparent",
+              }}
+            />
+          </label>
+          <button type="button" className="btn btn-primary" onClick={submitQuickCategoryAdd}>
+            {uiText(ui, "addCategoryButton")}
+          </button>
+          <button type="button" className="btn" onClick={cancelQuickCategoryAdd}>
+            {uiText(ui, "categoryQuickAddCancel")}
+          </button>
+        </div>
+      </div>
+    ) : null;
+
   return (
     <>
       <header className="app-header">
-        <div>
+        <div className="app-header-main">
           <h1>{uiText(ui, "appTitle")}</h1>
           <p className="subtle">{uiText(ui, "appSubtitle")}</p>
         </div>
-        <div className="row">
+        <div className="app-header-actions">
           <button
             type="button"
             className="btn btn-primary"
@@ -246,6 +483,11 @@ export function App({ bootstrap, persistence }: AppProps) {
           >
             {uiText(ui, "downloadJson")}
           </button>
+          <ProfileMenuTrigger
+            ui={ui}
+            expanded={profileOpen}
+            onClick={() => setProfileOpen((o) => !o)}
+          />
         </div>
       </header>
 
@@ -341,6 +583,7 @@ export function App({ bootstrap, persistence }: AppProps) {
           <p className="subtle">
             {state.purchases.length} {uiText(ui, "purchasesMeta")}
           </p>
+          {categoryQuickAdd.kind === "purchase" && quickCategoryAddBlock}
           <div className="table-wrap">
             <table>
               <thead>
@@ -364,14 +607,35 @@ export function App({ bootstrap, persistence }: AppProps) {
                       <td className="amount">{p.spendAmount.toFixed(2)}</td>
                       <td>
                         <select
-                          value={p.categoryId}
-                          onChange={(e) => updatePurchaseCategory(p.id, e.target.value)}
+                          value={
+                            categoryQuickAdd.kind === "purchase" &&
+                            categoryQuickAdd.purchaseId === p.id
+                              ? categoryQuickAdd.prevCategoryId
+                              : p.categoryId
+                          }
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === ADD_CATEGORY_SELECT_VALUE) {
+                              setCategoryQuickAdd({
+                                kind: "purchase",
+                                purchaseId: p.id,
+                                prevCategoryId: p.categoryId,
+                              });
+                              setQuickAddName("");
+                              setQuickAddColor(newCategoryColor);
+                              return;
+                            }
+                            updatePurchaseCategory(p.id, v);
+                          }}
                         >
                           {state.categories.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name}
                             </option>
                           ))}
+                          <option value={ADD_CATEGORY_SELECT_VALUE}>
+                            {uiText(ui, "selectAddCategoryOption")}
+                          </option>
                         </select>
                       </td>
                       <td className="subtle">{p.sourceFileName}</td>
@@ -398,6 +662,66 @@ export function App({ bootstrap, persistence }: AppProps) {
             </button>
           </div>
 
+          <h3 style={{ marginTop: "1.25rem" }}>{uiText(ui, "budgetAddLineTitle")}</h3>
+          <p className="subtle">{uiText(ui, "budgetAddLineHelp")}</p>
+          {categoryQuickAdd.kind === "budget" && quickCategoryAddBlock}
+          <div className="row drop">
+            <label className="profile-field" style={{ minWidth: 200, flex: "1 1 160px" }}>
+              <span>{uiText(ui, "thCategory")}</span>
+              <select
+                value={
+                  categoryQuickAdd.kind === "budget"
+                    ? categoryQuickAdd.prevCategoryId
+                    : budgetLineCategoryId
+                }
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === ADD_CATEGORY_SELECT_VALUE) {
+                    setCategoryQuickAdd({
+                      kind: "budget",
+                      prevCategoryId: budgetLineCategoryId,
+                    });
+                    setQuickAddName("");
+                    setQuickAddColor("#6366f1");
+                    return;
+                  }
+                  setBudgetLineCategoryId(v);
+                }}
+              >
+                {state.categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value={ADD_CATEGORY_SELECT_VALUE}>
+                  {uiText(ui, "selectAddCategoryOption")}
+                </option>
+              </select>
+            </label>
+            <label className="profile-field" style={{ minWidth: 120, flex: "0 1 120px" }}>
+              <span>{uiText(ui, "budgetAddAmount")}</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={budgetLineAmount}
+                onChange={(e) => setBudgetLineAmount(e.target.value)}
+                placeholder={uiText(ui, "budgetAddAmountPlaceholder")}
+              />
+            </label>
+            <label className="profile-field" style={{ minWidth: 160, flex: "1 1 140px" }}>
+              <span>{uiText(ui, "budgetAddLabel")}</span>
+              <input
+                type="text"
+                value={budgetLineLabel}
+                onChange={(e) => setBudgetLineLabel(e.target.value)}
+                placeholder={uiText(ui, "budgetAddLabelPlaceholder")}
+              />
+            </label>
+            <button type="button" className="btn btn-primary" onClick={addManualBudgetLine}>
+              {uiText(ui, "budgetAddButton")}
+            </button>
+          </div>
+
           <h3 style={{ marginTop: "1rem" }}>{uiText(ui, "budgetLinesTitle")}</h3>
           <div className="table-wrap" style={{ maxHeight: 280 }}>
             <table>
@@ -415,7 +739,9 @@ export function App({ bootstrap, persistence }: AppProps) {
                     <td>{b.label}</td>
                     <td>{categoryById.get(b.categoryId)?.name ?? b.categoryId}</td>
                     <td className="amount">{b.amount.toFixed(2)}</td>
-                    <td className="subtle">{b.sourceFileName}</td>
+                    <td className="subtle">
+                      {isManualBudgetLine(b) ? uiText(ui, "manualBudgetSource") : b.sourceFileName}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -447,6 +773,59 @@ export function App({ bootstrap, persistence }: AppProps) {
               />
             </label>
           </div>
+
+          <h3 style={{ marginTop: "1.5rem" }}>{uiText(ui, "categoriesSectionTitle")}</h3>
+          <p className="subtle">{uiText(ui, "categoriesSectionHelp")}</p>
+          <div className="table-wrap" style={{ maxHeight: 220 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>{uiText(ui, "thCategoryName")}</th>
+                  <th>{uiText(ui, "thCategoryColor")}</th>
+                  <th className="subtle">{uiText(ui, "thCategoryId")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.categories.map((c) => (
+                  <tr key={c.id}>
+                    <td>{c.name}</td>
+                    <td>
+                      <span className="swatch" style={{ background: c.color }} title={c.color} />
+                      <code>{c.color}</code>
+                    </td>
+                    <td className="subtle">
+                      <code>{c.id}</code>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="row drop" style={{ marginTop: "0.75rem" }}>
+            <label className="profile-field" style={{ flex: "1 1 200px" }}>
+              <span>{uiText(ui, "addCategoryName")}</span>
+              <input
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder={uiText(ui, "addCategoryNamePlaceholder")}
+              />
+            </label>
+            <label className="profile-field" style={{ flex: "0 0 auto" }}>
+              <span>{uiText(ui, "addCategoryColor")}</span>
+              <input
+                type="color"
+                value={newCategoryColor}
+                onChange={(e) => setNewCategoryColor(e.target.value)}
+                aria-label={uiText(ui, "addCategoryColor")}
+                style={{ width: "3rem", height: "2.25rem", padding: 0, border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer", background: "transparent" }}
+              />
+            </label>
+            <button type="button" className="btn btn-primary" onClick={addUserCategory}>
+              {uiText(ui, "addCategoryButton")}
+            </button>
+          </div>
+
           <h3 style={{ marginTop: "1.25rem" }}>{uiText(ui, "dangerTitle")}</h3>
           <button type="button" className="btn btn-danger" onClick={resetAll}>
             {uiText(ui, "resetDefaults")}
@@ -458,6 +837,16 @@ export function App({ bootstrap, persistence }: AppProps) {
         {uiText(ui, "footerLastSaved")} {new Date(state.updatedAt).toLocaleString()} ·{" "}
         {uiText(ui, "footerHosting")}
       </footer>
+
+      <ProfileMenu
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        ui={ui}
+        settings={userSettings}
+        onSettingsChange={setUserSettings}
+        onDownloadDemoCredit={() => downloadDemo("samples/fake-credit-card.csv", "fake-credit-card.csv")}
+        onDownloadDemoBudget={() => downloadDemo("samples/fake-budget.csv", "fake-budget.csv")}
+      />
     </>
   );
 }
