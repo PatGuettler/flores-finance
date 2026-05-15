@@ -337,6 +337,15 @@ select:disabled {
   background: linear-gradient(90deg, #f97316, #ef4444);
 }
 
+.bar-fill.spent.bar-fill-over {
+  background: linear-gradient(90deg, #dc2626, #991b1b);
+}
+
+.metric .amount.metric-pct-over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .bar-fill.budget {
   height: 4px;
   margin-top: 3px;

@@ -292,7 +292,7 @@ export function App({ bootstrap, persistence, initialAppState }: AppProps) {
         color: cat?.color ?? unknownColor,
         spent,
         budget,
-        pct: budget > 0 ? Math.min(100, (spent / budget) * 100) : spent > 0 ? 100 : 0,
+        pct: budget > 0 ? (spent / budget) * 100 : spent > 0 ? 100 : 0,
       };
     });
   }, [spendByCat, budgetByCat, categoryById, unknownColor, state.categories]);
@@ -786,7 +786,7 @@ export function App({ bootstrap, persistence, initialAppState }: AppProps) {
                           {" "}
                           · {uiText(ui, "labelBudget")}{" "}
                           <strong>${row.budget.toFixed(2)}</strong> · {uiText(ui, "labelRemaining")}{" "}
-                          <strong>${Math.max(0, row.budget - row.spent).toFixed(2)}</strong>
+                          <strong>${(row.budget - row.spent).toFixed(2)}</strong>
                         </>
                       )}
                       {row.budget <= 0 && row.spent > 0 && (
@@ -798,12 +798,16 @@ export function App({ bootstrap, persistence, initialAppState }: AppProps) {
                       title={barTitleTemplate.replace("{pct}", `${row.pct.toFixed(0)}`)}
                     >
                       <div
-                        className="bar-fill spent"
+                        className={`bar-fill spent${row.budget > 0 && row.pct > 100 ? " bar-fill-over" : ""}`}
                         style={{ width: `${Math.min(100, row.pct)}%` }}
                       />
                     </div>
                   </div>
-                  <div className="amount">{row.budget > 0 ? `${row.pct.toFixed(0)}%` : dash}</div>
+                  <div
+                    className={`amount${row.budget > 0 && row.pct > 100 ? " metric-pct-over" : ""}`}
+                  >
+                    {row.budget > 0 ? `${row.pct.toFixed(0)}%` : dash}
+                  </div>
                 </div>
               ))
           )}
