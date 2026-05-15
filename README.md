@@ -45,7 +45,7 @@ npm run preview # serves dist/ locally
 
 1. Push this repository to GitHub (this folder as the repo root).
 2. In the repository **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions** (not “Deploy from a branch”).  
-   **Why:** “Deploy from a branch” with **/ (root)** only serves files from the **repository root** on that branch. This project has no `index.html` there (the Vite entry lives in [`root/index.html`](root/index.html), which is a *folder named `root`*—not the same as GitHub’s “(root)” option). The live site is produced by the workflow into **`dist/`**, which Actions deploys.
+   **Why:** “Deploy from a branch” with **/ (root)** only serves files from the **repository root** on that branch. The app’s `index.html` must live there (same level as `package.json`) so GitHub can serve it as `/`; the built app in **`dist/`** is what **GitHub Actions** publishes.
 3. The workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) builds on every push to `main` or `master` and publishes the `dist/` folder to GitHub Pages.
 4. After the first successful run, open the **Pages** environment URL shown in the workflow summary. If the site was previously set to branch publishing, switch the source to **GitHub Actions** and wait for a new **“pages build and deployment”** run to finish.
 
@@ -133,7 +133,8 @@ The downloadable / importable document matches `AppState` in `src/types.ts`:
 
 - **Wrong amounts or missing rows**: Many issuers use different sign conventions. The importer samples the first rows to guess whether **negative amounts mean spend**; you can still adjust categories manually.
 - **Budget not showing**: Ensure the spreadsheet has recognizable headers (for example a column containing “Category” and another containing “Budget” or “Amount”).
-- **Blank screen on GitHub Pages**: Confirm **Settings → Pages** uses **GitHub Actions** as the source and that the `pages` workflow completed successfully.
+- **Blank screen on GitHub Pages**: Confirm **Settings → Pages** uses **GitHub Actions** as the source and that the `Deploy GitHub Pages` workflow completed successfully.
+- **The site shows your README.md text (not the app)**: Pages is still publishing from the **repository branch** (for example **Deploy from a branch → `/ (root)`**), so GitHub is rendering the repo instead of the built `dist/` bundle. Open **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions**, save, then push a commit (or re-run the **Deploy GitHub Pages** workflow) and wait for it to finish. The live app only ships from that workflow’s artifact.
 
 ## License
 

@@ -26,9 +26,17 @@ jobs:
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
         run: npm ci && npm run build
-      - uses: actions/upload-pages-artifact@v3
+
+      - name: Verify static output
+        run: |
+          test -f dist/index.html
+          grep -q 'script type="module"' dist/index.html || (echo "dist/index.html missing Vite bundle tags" && exit 1)
+          ls -la dist/assets | head
+
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
+          include-hidden-files: true
 
   deploy:
     needs: build
