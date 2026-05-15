@@ -1,0 +1,262 @@
+:root {
+  color-scheme: light dark;
+  --bg: #0b1220;
+  --panel: #111827;
+  --muted: #94a3b8;
+  --text: #e5e7eb;
+  --accent: #38bdf8;
+  --accent-dim: #0ea5e9;
+  --border: #1f2937;
+  --danger: #f87171;
+  --ok: #4ade80;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(1200px 600px at 10% -10%, #1d4ed833, transparent),
+    radial-gradient(800px 400px at 100% 0%, #7c3aed22, transparent), var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: var(--accent);
+}
+
+#root {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+}
+
+.subtle {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 1rem 0;
+}
+
+.tab {
+  border: 1px solid var(--border);
+  background: #0f172a;
+  color: var(--text);
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.tab[aria-selected="true"] {
+  border-color: var(--accent);
+  background: #0c4a6e44;
+  color: #e0f2fe;
+}
+
+.panel {
+  background: color-mix(in oklab, var(--panel) 92%, black);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  background: #0f172a;
+  color: var(--text);
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn:hover {
+  border-color: #334155;
+}
+
+.btn-primary {
+  border-color: var(--accent-dim);
+  background: #0369a1;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #0284c7;
+}
+
+.btn-danger {
+  border-color: #7f1d1d;
+  background: #450a0a;
+  color: #fecaca;
+}
+
+.message {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.message.error {
+  background: #450a0a;
+  border: 1px solid #7f1d1d;
+  color: #fecaca;
+}
+
+.message.ok {
+  background: #052e16;
+  border: 1px solid #166534;
+  color: #bbf7d0;
+}
+
+.drop {
+  border: 1px dashed #334155;
+  border-radius: 10px;
+  padding: 1rem;
+  background: #02061755;
+}
+
+.table-wrap {
+  overflow: auto;
+  max-height: 480px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+th,
+td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid #1f2937;
+  text-align: left;
+  vertical-align: middle;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: #0f172a;
+  z-index: 1;
+}
+
+tr:hover td {
+  background: #0f172a55;
+}
+
+.amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+select {
+  background: #020617;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.25rem 0.35rem;
+  max-width: 200px;
+}
+
+.bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #0f172a;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.bar-fill.spent {
+  background: linear-gradient(90deg, #f97316, #ef4444);
+}
+
+.bar-fill.budget {
+  height: 4px;
+  margin-top: 3px;
+  background: #38bdf8aa;
+}
+
+.metric {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 0.75rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.metric-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.legend {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+input[type="file"] {
+  font-size: 0.85rem;
+}
+
+code {
+  font-size: 0.82rem;
+  background: #020617;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}

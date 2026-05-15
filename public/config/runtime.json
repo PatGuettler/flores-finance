@@ -1,0 +1,124 @@
+{
+  "localStorageKey": "spend-budget-app-state",
+  "stateVersion": 1,
+  "fallbackCategoryId": "other",
+  "defaults": {
+    "categoriesUrl": "config/default-categories.json",
+    "merchantRulesUrl": "config/default-merchant-rules.json"
+  },
+  "importPatterns": {
+    "transactionColumns": {
+      "date": [
+        "transaction date",
+        "trans date",
+        "date",
+        "posted date",
+        "posting date",
+        "purchase date"
+      ],
+      "description": [
+        "description",
+        "merchant",
+        "merchant name",
+        "payee",
+        "details",
+        "narrative",
+        "memo"
+      ],
+      "amount": ["amount", "transaction amount", "amt", "debit", "charge"],
+      "type": ["type", "transaction type", "debit/credit", "credit/debit"],
+      "category": ["category", "merchant category", "mcc category", "class"]
+    },
+    "transactionRowFallback": {
+      "description": ["description", "merchant", "payee", "name", "details"],
+      "date": ["date", "transaction date", "trans date", "posted date", "posting date"],
+      "amount": ["amount", "transaction amount", "amt"],
+      "type": ["type", "transaction type", "debit/credit"],
+      "bankCategory": ["category", "mcc", "merchant category"]
+    },
+    "typeSpendZeroSubstrings": ["credit", "payment", "refund"],
+    "typeSpendSubstrings": ["debit", "sale", "purchase"],
+    "spendSignInference": {
+      "maxRows": 80,
+      "amountFallbackHeaders": ["amount", "transaction amount", "amt"]
+    },
+    "budget": {
+      "headerScores": [
+        ["category", 100],
+        ["budget category", 100],
+        ["name", 40],
+        ["planned", 80],
+        ["budget", 90],
+        ["amount", 70],
+        ["limit", 70],
+        ["monthly", 60],
+        ["target", 50]
+      ],
+      "categoryHeaderMinScore": 40,
+      "categoryHeaderRegex": "category|name",
+      "amountHeaderRegex": "amount|budget|planned|limit|target|monthly",
+      "errors": {
+        "missingColumns": "Could not detect category and amount columns in budget file."
+      }
+    },
+    "transactions": {
+      "errors": {
+        "emptyWorkbook": "No sheets with data found in workbook."
+      }
+    }
+  },
+  "ui": {
+    "appTitle": "Spend & Budget Tracker",
+    "appSubtitle": "Parse card CSV/XLSX, auto-categorize, edit categories, import a budget, compare actuals to plan. Data persists in this browser and can be exported as JSON.",
+    "tabDashboard": "Dashboard",
+    "tabTransactions": "Transactions",
+    "tabBudget": "Budget",
+    "tabData": "Data & reset",
+    "downloadJson": "Download JSON",
+    "dashboardTitle": "Budget vs spending",
+    "dashboardHelp": "Upload transactions to populate spend. Upload a budget spreadsheet to set targets per category (totals are summed when multiple rows map to the same category).",
+    "dashboardEmpty": "No data yet. Import transactions (and optionally a budget).",
+    "labelSpent": "Spent",
+    "labelBudget": "Budget",
+    "labelRemaining": "Remaining",
+    "labelNoBudgetCategory": "No budget line for this category",
+    "labelPercentOfBudget": "{pct}% of budget",
+    "transactionsImportTitle": "Import transactions",
+    "transactionsImportHelp": "Supports typical issuer exports (Chase, Amex-style columns). Amount sign is detected automatically; payment/credit rows are excluded from spend where possible.",
+    "clearPurchases": "Clear purchases",
+    "purchasesTitle": "All purchases",
+    "purchasesMeta": "rows · change category to reclassify",
+    "thDate": "Date",
+    "thDescription": "Description",
+    "thAmount": "Amount",
+    "thSpend": "Spend",
+    "thCategory": "Category",
+    "thSource": "Source",
+    "budgetImportTitle": "Import budget",
+    "budgetImportHelp": "Provide a CSV or Excel file with a category column and an amount column (headers like \"Category\" and \"Monthly Budget\" work). Importing replaces the previous budget snapshot so you can revise plans as income changes.",
+    "clearBudget": "Clear budget",
+    "budgetLinesTitle": "Current budget lines",
+    "thLabel": "Label",
+    "dataTitle": "JSON state file",
+    "dataHelp": "The app mirrors the future database shape in a single JSON document: categories, merchant rules, purchases (each with categoryId), and budget lines. Browsers cannot silently write to disk; changes persist to localStorage and you can download or upload the same JSON for backups or a future API.",
+    "downloadStateJson": "Download state JSON",
+    "restoreLabel": "Restore from file:",
+    "dangerTitle": "Danger zone",
+    "resetDefaults": "Reset to defaults",
+    "footerHosting": "Open source layout for AWS static hosting (S3/CloudFront) or GitHub Pages.",
+    "footerLastSaved": "Last saved:",
+    "confirmClearPurchases": "Remove all imported purchases from this browser?",
+    "confirmClearBudget": "Clear all budget lines?",
+    "confirmReset": "Reset app to defaults (clears local data)?",
+    "msgClearedPurchases": "All purchases cleared.",
+    "msgClearedBudget": "Budget cleared.",
+    "msgReset": "Reset to defaults from configuration.",
+    "msgImportedTransactions": "Imported {count} transactions from {file}.",
+    "msgImportedBudget": "Loaded {count} budget lines from {file} (replaced previous budget).",
+    "msgRestoredState": "Restored state from {file}.",
+    "exportFilename": "spend-tracker-state.json",
+    "emptyDescription": "(no description)",
+    "dashPlaceholder": "—",
+    "unknownCategoryColor": "#64748b"
+  }
+}

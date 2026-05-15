@@ -1,0 +1,16 @@
+[
+  { "id": "groceries", "name": "Groceries", "color": "#16a34a" },
+  { "id": "fast-food", "name": "Fast Food", "color": "#ea580c" },
+  { "id": "dining", "name": "Dining", "color": "#d97706" },
+  { "id": "gas", "name": "Gas & Auto", "color": "#2563eb" },
+  { "id": "travel", "name": "Travel", "color": "#7c3aed" },
+  { "id": "entertainment", "name": "Entertainment", "color": "#db2777" },
+  { "id": "utilities", "name": "Utilities", "color": "#0d9488" },
+  { "id": "subscriptions", "name": "Subscriptions", "color": "#4f46e5" },
+  { "id": "shopping", "name": "Shopping", "color": "#9333ea" },
+  { "id": "health", "name": "Health & Pharmacy", "color": "#059669" },
+  { "id": "home", "name": "Home Improvement", "color": "#78716c" },
+  { "id": "income", "name": "Income / Credits", "color": "#0ea5e9" },
+  { "id": "fees", "name": "Fees & Finance", "color": "#64748b" },
+  { "id": "other", "name": "Other / Uncategorized", "color": "#94a3b8" }
+]

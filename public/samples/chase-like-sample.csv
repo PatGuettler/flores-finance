@@ -1,0 +1,5 @@
+Transaction Date,Post Date,Description,Category,Type,Amount,Memo
+2026-04-02,2026-04-03,MCDONALD'S F12345,Food & Drink,Sale,-8.42,
+2026-04-03,2026-04-04,PUBLIX #1234,Groceries,Sale,-54.18,
+2026-04-05,2026-04-06,NETFLIX.COM,Entertainment,Sale,-15.49,
+2026-04-10,2026-04-11,AUTOMATIC PAYMENT - THANK YOU,Payment,Credit,250.00,
