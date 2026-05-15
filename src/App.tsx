@@ -25,6 +25,8 @@ import {
 
 type Tab = "dashboard" | "transactions" | "budget" | "data";
 
+type BudgetLinesSubTab = "planned" | "unplanned";
+
 const ADD_CATEGORY_SELECT_VALUE = "__add_category__";
 
 type CategoryQuickAdd =
@@ -159,12 +161,14 @@ export function App({ bootstrap, persistence }: AppProps) {
     amount: string;
   }>({ categoryId: "", label: "", amount: "" });
   const budgetAmountInputRef = useRef<HTMLInputElement>(null);
+  const [budgetLinesSubTab, setBudgetLinesSubTab] = useState<BudgetLinesSubTab>("planned");
 
   useEffect(() => {
     setCategoryQuickAdd({ kind: "none" });
     setQuickAddName("");
     setQuickAddColor("#6366f1");
     setEditingBudgetLineId(null);
+    setBudgetLinesSubTab("planned");
   }, [tab]);
 
   useEffect(() => {
@@ -218,6 +222,12 @@ export function App({ bootstrap, persistence }: AppProps) {
         : categoriesEligibleForBudgetLine[0]!.id,
     );
   }, [categoriesEligibleForBudgetLine]);
+
+  useEffect(() => {
+    if (budgetLinesSubTab === "unplanned" && categoriesEligibleForBudgetLine.length === 0) {
+      setBudgetLinesSubTab("planned");
+    }
+  }, [budgetLinesSubTab, categoriesEligibleForBudgetLine.length]);
 
   const spendByCat = useMemo(() => sumSpendByCategory(state.purchases), [state.purchases]);
   const budgetByCat = useMemo(() => sumBudgetByCategory(state.budgets), [state.budgets]);
@@ -904,152 +914,202 @@ export function App({ bootstrap, persistence }: AppProps) {
           <p className="subtle" style={{ marginBottom: "0.65rem" }}>
             {uiText(ui, "budgetLinesIntro")}
           </p>
-          <div className="table-wrap budget-lines-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>{uiText(ui, "thLabel")}</th>
-                  <th>{uiText(ui, "thCategory")}</th>
-                  <th className="amount">{uiText(ui, "thAmount")}</th>
-                  <th>{uiText(ui, "thSource")}</th>
-                  <th className="budget-actions-col">{uiText(ui, "thBudgetActions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.budgets.length === 0 && categoriesEligibleForBudgetLine.length === 0 ? (
+          <div
+            className="tabs budget-lines-tabs"
+            role="tablist"
+            aria-label={uiText(ui, "budgetLinesSubTabsAria")}
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={budgetLinesSubTab === "planned"}
+              className="tab"
+              onClick={() => setBudgetLinesSubTab("planned")}
+            >
+              {uiText(ui, "budgetLinesTabPlanned")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={budgetLinesSubTab === "unplanned"}
+              className="tab"
+              onClick={() => setBudgetLinesSubTab("unplanned")}
+            >
+              {uiText(ui, "budgetLinesTabUnplanned")}
+            </button>
+          </div>
+          {budgetLinesSubTab === "planned" ? (
+            <div className="table-wrap budget-lines-table">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan={5} className="subtle">
-                      {uiText(ui, "budgetLinesEmpty")}
-                    </td>
+                    <th>{uiText(ui, "thLabel")}</th>
+                    <th>{uiText(ui, "thCategory")}</th>
+                    <th className="amount">{uiText(ui, "thAmount")}</th>
+                    <th>{uiText(ui, "thSource")}</th>
+                    <th className="budget-actions-col">{uiText(ui, "thBudgetActions")}</th>
                   </tr>
-                ) : null}
-                {state.budgets.length > 0 ? (
-                  <>
-                    {budgetLinesNewestFirst.map((b) =>
-                    editingBudgetLineId === b.id ? (
-                    <tr key={b.id}>
-                      <td>
-                        <input
-                          type="text"
-                          className="budget-edit-input"
-                          value={editBudgetDraft.label}
-                          onChange={(e) =>
-                            setEditBudgetDraft((d) => ({ ...d, label: e.target.value }))
-                          }
-                          aria-label={uiText(ui, "thLabel")}
-                        />
-                      </td>
-                      <td>
-                        <select
-                          value={editBudgetDraft.categoryId}
-                          onChange={(e) =>
-                            setEditBudgetDraft((d) => ({
-                              ...d,
-                              categoryId: e.target.value,
-                            }))
-                          }
-                          aria-label={uiText(ui, "thCategory")}
-                        >
-                          {categoriesForBudgetLineEdit.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="amount">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          className="budget-edit-input budget-edit-amount"
-                          value={editBudgetDraft.amount}
-                          onChange={(e) =>
-                            setEditBudgetDraft((d) => ({ ...d, amount: e.target.value }))
-                          }
-                          aria-label={uiText(ui, "budgetAddAmount")}
-                        />
-                      </td>
-                      <td className="subtle">
-                        {isManualBudgetLine(b) ? uiText(ui, "manualBudgetSource") : b.sourceFileName}
-                      </td>
-                      <td>
-                        <div className="budget-actions">
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={saveEditBudgetLine}
-                          >
-                            {uiText(ui, "saveBudgetLineEdit")}
-                          </button>
-                          <button type="button" className="btn btn-sm" onClick={cancelEditBudgetLine}>
-                            {uiText(ui, "cancelBudgetLineEdit")}
-                          </button>
-                        </div>
+                </thead>
+                <tbody>
+                  {state.budgets.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="subtle">
+                        {uiText(ui, "budgetLinesEmpty")}
                       </td>
                     </tr>
                   ) : (
-                    <tr key={b.id}>
-                      <td>{b.label}</td>
-                      <td>{categoryById.get(b.categoryId)?.name ?? b.categoryId}</td>
-                      <td className="amount">{b.amount.toFixed(2)}</td>
-                      <td className="subtle">
-                        {isManualBudgetLine(b) ? uiText(ui, "manualBudgetSource") : b.sourceFileName}
-                      </td>
-                      <td>
-                        <div className="budget-actions">
-                          <button
-                            type="button"
-                            className="btn-icon"
-                            onClick={() => startEditBudgetLine(b)}
-                            disabled={editingBudgetLineId !== null && editingBudgetLineId !== b.id}
-                            aria-label={uiText(ui, "editBudgetLineAria")}
-                            title={uiText(ui, "editBudgetLineAria")}
-                          >
-                            <IconPencil />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-icon btn-icon-danger"
-                            onClick={() => deleteBudgetLine(b.id)}
-                            aria-label={uiText(ui, "deleteBudgetLineAria")}
-                            title={uiText(ui, "deleteBudgetLineAria")}
-                          >
-                            <IconTrash />
-                          </button>
-                        </div>
+                    budgetLinesNewestFirst.map((b) =>
+                      editingBudgetLineId === b.id ? (
+                        <tr key={b.id}>
+                          <td>
+                            <input
+                              type="text"
+                              className="budget-edit-input"
+                              value={editBudgetDraft.label}
+                              onChange={(e) =>
+                                setEditBudgetDraft((d) => ({ ...d, label: e.target.value }))
+                              }
+                              aria-label={uiText(ui, "thLabel")}
+                            />
+                          </td>
+                          <td>
+                            <select
+                              value={editBudgetDraft.categoryId}
+                              onChange={(e) =>
+                                setEditBudgetDraft((d) => ({
+                                  ...d,
+                                  categoryId: e.target.value,
+                                }))
+                              }
+                              aria-label={uiText(ui, "thCategory")}
+                            >
+                              {categoriesForBudgetLineEdit.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="amount">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              className="budget-edit-input budget-edit-amount"
+                              value={editBudgetDraft.amount}
+                              onChange={(e) =>
+                                setEditBudgetDraft((d) => ({ ...d, amount: e.target.value }))
+                              }
+                              aria-label={uiText(ui, "budgetAddAmount")}
+                            />
+                          </td>
+                          <td className="subtle">
+                            {isManualBudgetLine(b)
+                              ? uiText(ui, "manualBudgetSource")
+                              : b.sourceFileName}
+                          </td>
+                          <td>
+                            <div className="budget-actions">
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                onClick={saveEditBudgetLine}
+                              >
+                                {uiText(ui, "saveBudgetLineEdit")}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={cancelEditBudgetLine}
+                              >
+                                {uiText(ui, "cancelBudgetLineEdit")}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={b.id}>
+                          <td>{b.label}</td>
+                          <td>{categoryById.get(b.categoryId)?.name ?? b.categoryId}</td>
+                          <td className="amount">{b.amount.toFixed(2)}</td>
+                          <td className="subtle">
+                            {isManualBudgetLine(b)
+                              ? uiText(ui, "manualBudgetSource")
+                              : b.sourceFileName}
+                          </td>
+                          <td>
+                            <div className="budget-actions">
+                              <button
+                                type="button"
+                                className="btn-icon"
+                                onClick={() => startEditBudgetLine(b)}
+                                disabled={
+                                  editingBudgetLineId !== null && editingBudgetLineId !== b.id
+                                }
+                                aria-label={uiText(ui, "editBudgetLineAria")}
+                                title={uiText(ui, "editBudgetLineAria")}
+                              >
+                                <IconPencil />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-icon btn-icon-danger"
+                                onClick={() => deleteBudgetLine(b.id)}
+                                aria-label={uiText(ui, "deleteBudgetLineAria")}
+                                title={uiText(ui, "deleteBudgetLineAria")}
+                              >
+                                <IconTrash />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="table-wrap budget-lines-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{uiText(ui, "thLabel")}</th>
+                    <th>{uiText(ui, "thCategory")}</th>
+                    <th className="amount">{uiText(ui, "thAmount")}</th>
+                    <th>{uiText(ui, "thSource")}</th>
+                    <th className="budget-actions-col">{uiText(ui, "thBudgetActions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categoriesEligibleForBudgetLine.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="subtle">
+                        {uiText(ui, "budgetUnplannedTabEmpty")}
                       </td>
                     </tr>
-                  )
-                    )}
-                  </>
-                ) : null}
-                {state.budgets.length > 0 && categoriesEligibleForBudgetLine.length > 0 ? (
-                  <tr key="budget-unplanned-sep">
-                    <td colSpan={5} className="subtle budget-unplanned-sep">
-                      {uiText(ui, "budgetUnplannedSectionTitle")}
-                    </td>
-                  </tr>
-                ) : null}
-                {categoriesEligibleForBudgetLine.map((c) => (
-                  <tr key={`unplanned-${c.id}`} className="budget-unplanned-row">
-                    <td className="subtle">{uiText(ui, "budgetUnplannedLabelCell")}</td>
-                    <td>{c.name}</td>
-                    <td className="amount subtle">{uiText(ui, "dashPlaceholder")}</td>
-                    <td className="subtle">{uiText(ui, "budgetUnplannedSource")}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-primary"
-                        onClick={() => planBudgetForCategory(c.id)}
-                      >
-                        {uiText(ui, "budgetPlanAmount")}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    categoriesEligibleForBudgetLine.map((c) => (
+                      <tr key={`unplanned-${c.id}`} className="budget-unplanned-row">
+                        <td className="subtle">{uiText(ui, "budgetUnplannedLabelCell")}</td>
+                        <td>{c.name}</td>
+                        <td className="amount subtle">{uiText(ui, "dashPlaceholder")}</td>
+                        <td className="subtle">{uiText(ui, "budgetUnplannedSource")}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary"
+                            onClick={() => planBudgetForCategory(c.id)}
+                          >
+                            {uiText(ui, "budgetPlanAmount")}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       )}
 
